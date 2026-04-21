@@ -3,7 +3,11 @@ backend/myenv/
 backend/__pycache__/
 backend/attendance.db
 backend/temp_*.jpg
-backend/students_pics/*.pkl
+
+# Student Photos (Pure folder ko ignore karne ke liye)
+backend/students_pics/*
+# Lekin agar folder ke andar koi README ya .gitkeep file ho toh usay rehne do
+!backend/students_pics/.gitkeep
 
 # Flutter
 mobile_app/.dart_tool/
