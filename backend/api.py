@@ -5,6 +5,7 @@ import sqlite3
 import os
 from deepface import DeepFace
 import shutil
+import uuid
 
 app = FastAPI()
 
@@ -12,7 +13,6 @@ app = FastAPI()
 def init_db():
     conn = sqlite3.connect('attendance.db')
     cursor = conn.cursor()
-    # Students Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS students (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,7 +20,6 @@ def init_db():
             roll_number TEXT UNIQUE NOT NULL
         )
     ''')
-    # Attendance Logs Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attendance_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,28 +33,22 @@ def init_db():
 
 init_db()
 
-# Create directory for student photos if it doesn't exist
 if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
-
-# --- ROUTES ---
 
 @app.get("/")
 def read_root():
     return {"message": "FYP Smart Attendance API is Live!"}
 
-# 1. NEW: STUDENT REGISTRATION ROUTE
+# 1. REGISTER STUDENT
 @app.post("/register-student/")
 async def register_student(name: str = Form(...), file: UploadFile = File(...)):
     try:
-        # File name student ke naam par rakhenge
-        # Extension fix kar dete hain .jpg taake database clean rahe
         file_path = os.path.join("./students_pics", f"{name}.jpg")
-        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # DeepFace ki .pkl file delete karna zaroori hai taake wo naya chehra scan kare
+        # Clear DeepFace cache to recognize new faces
         for f in os.listdir("./students_pics"):
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
@@ -64,58 +57,70 @@ async def register_student(name: str = Form(...), file: UploadFile = File(...)):
     except Exception as e:
         return {"status": "Error", "message": str(e)}
 
-# 2. UPDATED: ATTENDANCE DETECTION ROUTE
+# 2. DETECT ATTENDANCE (FIXED)
 @app.post("/detect-attendance/")
-async def detect_and_mark(file: UploadFile = File(...)):
-    temp_path = f"temp_{file.filename}"
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
+async def detect_attendance(file: UploadFile = File(...)):
+    unique_filename = f"temp_{uuid.uuid4()}.jpg"
+    temp_file_path = unique_filename 
+    
     try:
-        # DeepFace Recognition
-        results = DeepFace.find(img_path=temp_path, 
-                                db_path="./students_pics", 
-                                enforce_detection=False,
-                                model_name="VGG-Face", 
-                                distance_metric="cosine")
-        
-        print("DeepFace RAW Result:", results)
+        # 1. Save temp file
+        with open(temp_file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        recognized_students = []
+        # 2. DeepFace Search
+        # Multiple faces ke liye ye list return karega
+        results = DeepFace.find(
+            img_path=temp_file_path,
+            db_path="./students_pics",
+            model_name="VGG-Face",
+            enforce_detection=False, 
+            detector_backend="opencv",
+            align=False
+        )
+
+        detected_names = set() # Set use kar rahe hain taake auto-duplicate remove ho jayein
         
-        if len(results) > 0 and not results[0].empty:
-            for index, row in results[0].iterrows():
-                full_path = row['identity']
-                # Har qism ke extension (.jpeg, .png) ko handle karne ke liye:
-                filename_with_ext = os.path.basename(full_path)
-                s_name = os.path.splitext(filename_with_ext)[0]
+        # 3. Loop through each detected face
+        for res in results:
+            if not res.empty:
+                # 0.6 Threshold (aapne jo set kiya tha, perfect hai)
+                reliable_matches = res[res['distance'] < 0.6] 
                 
-                if s_name not in recognized_students:
-                    recognized_students.append(s_name)
-                    
-                    # Database Entry
-                    conn = sqlite3.connect('attendance.db')
-                    cursor = conn.cursor()
-                    cursor.execute("INSERT INTO attendance_logs (student_name, status) VALUES (?, ?)", (s_name, "Present"))
-                    conn.commit()
-                    conn.close()
+                if not reliable_matches.empty:
+                    # Sab se top wala match (lowest distance) uthayein
+                    best_match = reliable_matches.iloc[0]['identity']
+                    name = os.path.basename(best_match).split('.')[0]
+                    detected_names.add(name) # Set mein add karein
 
-        # Cleanup
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        final_names = list(detected_names)
+
+        # 4. Save to Database (Bulk Insertion)
+        if final_names:
+            conn = sqlite3.connect('attendance.db')
+            cursor = conn.cursor()
+            for name in final_names:
+                # Check karein ke aaj ki date mein is bande ki attendance pehle toh nahi lagi?
+                # (Optional: Agar aap duplicate rokhna chahte hain)
+                cursor.execute("INSERT INTO attendance_logs (student_name, status) VALUES (?, ?)", (name, "Present"))
+            conn.commit()
+            conn.close()
+
+        # 5. Clean up
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
 
         return {
             "status": "Success",
-            "recognized_students": recognized_students,
-            "message": f"Attendance marked for: {', '.join(recognized_students)}" if recognized_students else "No student recognized"
+            "recognized_students": final_names,
+            "message": f"Attendance marked for: {', '.join(final_names)}" if final_names else "No matching student found."
         }
 
     except Exception as e:
-        if os.path.exists(temp_path): os.remove(temp_path)
-        print(f"Error occurred: {e}")
-        return {"status": "Error", "message": str(e)}
-
-# 3. BONUS: VIEW ATTENDANCE LOGS
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+        return {"status": "Error", "recognized_students": [], "message": str(e)}
+# 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
     conn = sqlite3.connect('attendance.db')

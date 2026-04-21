@@ -1,20 +1,23 @@
 class AttendanceResponse {
   final String status;
-  final List<String> recognizedStudents;
   final String message;
+  final List<String> recognizedStudents;
 
   AttendanceResponse({
     required this.status,
-    required this.recognizedStudents,
     required this.message,
+    required this.recognizedStudents,
   });
 
-  // JSON ko Dart object mein badalne ke liye
   factory AttendanceResponse.fromJson(Map<String, dynamic> json) {
     return AttendanceResponse(
+      // ?? "" ka matlab hai agar null aaye toh khali string rakho
       status: json['status'] ?? "Error",
-      recognizedStudents: List<String>.from(json['recognized_students'] ?? []),
-      message: json['message'] ?? "",
+      message: json['message'] ?? "No message from server",
+      // Agar recognized_students null ho toh khali list bhej do
+      recognizedStudents: json['recognized_students'] != null
+          ? List<String>.from(json['recognized_students'])
+          : [],
     );
   }
 }
