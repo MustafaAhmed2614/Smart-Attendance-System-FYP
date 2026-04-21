@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import 'registration_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -106,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 10),
             const Text(
-              "Apni photo khinchein attendance lagane ke liye",
+              "Capture your photo to mark attendance",
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),
@@ -135,6 +136,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
+            const SizedBox(height: 15),
+            // Mark Attendance button ke niche ye add karein:
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RegistrationScreen(),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Go to Registration"),
+            ),
           ],
         ),
       ),
