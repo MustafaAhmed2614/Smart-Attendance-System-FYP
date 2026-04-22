@@ -6,6 +6,7 @@ import os
 from deepface import DeepFace
 import shutil
 import uuid
+import traceback # 👈 Naya tool jo chhupay hue errors pakrega
 
 app = FastAPI()
 
@@ -33,6 +34,7 @@ def init_db():
 
 init_db()
 
+# Ensure folder exists
 if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
 
@@ -40,21 +42,34 @@ if not os.path.exists("./students_pics"):
 def read_root():
     return {"message": "FYP Smart Attendance API is Live!"}
 
-# 1. REGISTER STUDENT
+# 1. REGISTER STUDENT (With X-Ray Logging)
 @app.post("/register-student/")
 async def register_student(name: str = Form(...), file: UploadFile = File(...)):
     try:
-        file_path = os.path.join("./students_pics", f"{name}.jpg")
+        print(f"\n--- 📥 NEW REGISTRATION REQUEST: {name} ---")
+        
+        unique_id = uuid.uuid4().hex[:5]
+        file_name = f"{name}_{unique_id}.jpg"
+        file_path = os.path.join("./students_pics", file_name)
+        
+        print(f"📸 Saving photo to: {file_path}")
+        
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Clear DeepFace cache
+        print("🗑️ Deleting old PKL cache so AI learns new faces...")
         for f in os.listdir("./students_pics"):
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
+                print(f"   -> Deleted: {f}")
 
-        return {"status": "Success", "message": f"Student {name} registered successfully!"}
+        print(f"✅ REGISTRATION SUCCESSFUL FOR {name}\n")
+        return {"status": "Success", "message": f"Photo added for {name}!"}
+    
     except Exception as e:
+        print("\n‼️ ‼️ REGISTRATION ERROR ‼️ ‼️")
+        traceback.print_exc() # Ye exact line number aur wajah batayega!
+        print("‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️\n")
         return {"status": "Error", "message": str(e)}
 
 # 2. DETECT ATTENDANCE
@@ -64,43 +79,40 @@ async def detect_attendance(file: UploadFile = File(...)):
     temp_file_path = unique_filename 
     
     try:
-        # Save temp file
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # DeepFace Search with RetinaFace (More Accurate for Group Photos)
         results = DeepFace.find(
             img_path=temp_file_path,
             db_path="./students_pics",
-            model_name="VGG-Face",
+            model_name="VGG-Face", 
             enforce_detection=False, 
-            detector_backend="retinaface", # 👈 High accuracy detector
+            detector_backend="retinaface", 
             align=True
         )
 
         detected_names = set()
         
         print("\n" + "="*50)
-        print("🔍 SCANNING GROUP PHOTO FOR FACES...")
+        print("🔍 SCANNING WITH FACENET512...")
         
-        # results list of dataframes hoti hai (one for each detected face)
         for i, res in enumerate(results):
             if not res.empty:
-                # Top match details
                 best_match_row = res.iloc[0]
                 best_match_path = best_match_row['identity']
                 distance = best_match_row['distance']
-                name = os.path.basename(best_match_path).split('.')[0]
+                
+                # Name Extract (e.g., Mustafa_abc12 -> Mustafa)
+                raw_name = os.path.basename(best_match_path).split('.')[0] 
+                clean_name = raw_name.split('_')[0] 
 
-                # Debug print to terminal
-                print(f"👤 Face {i+1}: Matched with '{name}' | Distance: {distance:.4f}")
+                print(f"👤 Face {i+1}: Matched with '{clean_name}' (File: {raw_name}) | Distance: {distance:.4f}")
 
-                # 0.48 Threshold (Strict for filtering out background noise)
-                if distance < 0.48:
-                    detected_names.add(name)
-                    print(f"   ✅ SUCCESS: Added {name}")
+                if distance < 0.55: 
+                    detected_names.add(clean_name)
+                    print(f"   ✅ SUCCESS: Added {clean_name}")
                 else:
-                    print(f"   ❌ IGNORED: Distance too high ({distance:.2f})")
+                    print(f"   ❌ IGNORED: Distance too high ({distance:.4f})")
             else:
                 print(f"❓ Face {i+1}: No match found in database.")
 
@@ -108,7 +120,6 @@ async def detect_attendance(file: UploadFile = File(...)):
 
         final_names = list(detected_names)
 
-        # Save to Database
         if final_names:
             conn = sqlite3.connect('attendance.db')
             cursor = conn.cursor()
@@ -117,7 +128,6 @@ async def detect_attendance(file: UploadFile = File(...)):
             conn.commit()
             conn.close()
 
-        # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 

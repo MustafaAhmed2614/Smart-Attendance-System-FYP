@@ -6,9 +6,11 @@ import '../models/attendance_model.dart';
 
 class ApiService {
   // Demo se pehle terminal mein 'ipconfig getifaddr en0' karke IP check lazmi karein
-  final String baseUrl = "http://192.168.0.198:8000";
+  final String baseUrl = "http://192.168.0.114:8000";
 
   // Attendance Mark karne ka function (Optimized for RetinaFace)
+  // markAttendance function ko update karein
+
   Future<AttendanceResponse> markAttendance(File imageFile) async {
     try {
       var request = http.MultipartRequest(
@@ -20,9 +22,10 @@ class ApiService {
         await http.MultipartFile.fromPath('file', imageFile.path),
       );
 
-      // RetinaFace slow hota hai, isliye 60 seconds ka wait zaroori hai
+      // ⏳ Timeout ko 2 minutes (120 seconds) kar diya hai
+      // Kyunke Facenet512 aur RetinaFace heavy scanning karte hain
       var streamedResponse = await request.send().timeout(
-        const Duration(seconds: 60),
+        const Duration(minutes: 2), // 👈 60 seconds se barha kar 2 minutes
       );
 
       var responseData = await streamedResponse.stream.bytesToString();
@@ -34,8 +37,9 @@ class ApiService {
         throw Exception(errorData['message'] ?? "Server Error");
       }
     } on TimeoutException {
+      // 📢 User ke liye behtar error message
       throw Exception(
-        "Processing mein boht waqt lag raha hai. Accuracy ke liye RetinaFace scan jari hai, dobara koshish karein.",
+        "Scan mein boht waqt lag raha hai. Aapka server heavy processing kar raha hai, thori dair baad dobara koshish karein.",
       );
     } on SocketException {
       throw Exception(
