@@ -48,7 +48,7 @@ async def register_student(name: str = Form(...), file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Clear DeepFace cache to recognize new faces
+        # Clear DeepFace cache
         for f in os.listdir("./students_pics"):
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
@@ -57,56 +57,67 @@ async def register_student(name: str = Form(...), file: UploadFile = File(...)):
     except Exception as e:
         return {"status": "Error", "message": str(e)}
 
-# 2. DETECT ATTENDANCE (FIXED)
+# 2. DETECT ATTENDANCE
 @app.post("/detect-attendance/")
 async def detect_attendance(file: UploadFile = File(...)):
     unique_filename = f"temp_{uuid.uuid4()}.jpg"
     temp_file_path = unique_filename 
     
     try:
-        # 1. Save temp file
+        # Save temp file
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 2. DeepFace Search
-        # Multiple faces ke liye ye list return karega
+        # DeepFace Search with RetinaFace (More Accurate for Group Photos)
         results = DeepFace.find(
             img_path=temp_file_path,
             db_path="./students_pics",
             model_name="VGG-Face",
             enforce_detection=False, 
-            detector_backend="opencv",
-            align=False
+            detector_backend="retinaface", # 👈 High accuracy detector
+            align=True
         )
 
-        detected_names = set() # Set use kar rahe hain taake auto-duplicate remove ho jayein
+        detected_names = set()
         
-        # 3. Loop through each detected face
-        for res in results:
+        print("\n" + "="*50)
+        print("🔍 SCANNING GROUP PHOTO FOR FACES...")
+        
+        # results list of dataframes hoti hai (one for each detected face)
+        for i, res in enumerate(results):
             if not res.empty:
-                # 0.6 Threshold (aapne jo set kiya tha, perfect hai)
-                reliable_matches = res[res['distance'] < 0.6] 
-                
-                if not reliable_matches.empty:
-                    # Sab se top wala match (lowest distance) uthayein
-                    best_match = reliable_matches.iloc[0]['identity']
-                    name = os.path.basename(best_match).split('.')[0]
-                    detected_names.add(name) # Set mein add karein
+                # Top match details
+                best_match_row = res.iloc[0]
+                best_match_path = best_match_row['identity']
+                distance = best_match_row['distance']
+                name = os.path.basename(best_match_path).split('.')[0]
+
+                # Debug print to terminal
+                print(f"👤 Face {i+1}: Matched with '{name}' | Distance: {distance:.4f}")
+
+                # 0.48 Threshold (Strict for filtering out background noise)
+                if distance < 0.48:
+                    detected_names.add(name)
+                    print(f"   ✅ SUCCESS: Added {name}")
+                else:
+                    print(f"   ❌ IGNORED: Distance too high ({distance:.2f})")
+            else:
+                print(f"❓ Face {i+1}: No match found in database.")
+
+        print("="*50 + "\n")
 
         final_names = list(detected_names)
 
-        # 4. Save to Database (Bulk Insertion)
+        # Save to Database
         if final_names:
             conn = sqlite3.connect('attendance.db')
             cursor = conn.cursor()
             for name in final_names:
-                # Check karein ke aaj ki date mein is bande ki attendance pehle toh nahi lagi?
-                # (Optional: Agar aap duplicate rokhna chahte hain)
                 cursor.execute("INSERT INTO attendance_logs (student_name, status) VALUES (?, ?)", (name, "Present"))
             conn.commit()
             conn.close()
 
-        # 5. Clean up
+        # Clean up temp file
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
@@ -119,7 +130,9 @@ async def detect_attendance(file: UploadFile = File(...)):
     except Exception as e:
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
+        print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "recognized_students": [], "message": str(e)}
+
 # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():

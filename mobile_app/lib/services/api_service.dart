@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async'; // Timeout ke liye zaroori hai
 import 'package:http/http.dart' as http;
 import '../models/attendance_model.dart';
 
 class ApiService {
-  // IP Address check karlein ke yahi hai ya change hui hai
+  // Demo se pehle terminal mein 'ipconfig getifaddr en0' karke IP check lazmi karein
   final String baseUrl = "http://192.168.0.198:8000";
 
-  // Attendance Mark karne ka function
+  // Attendance Mark karne ka function (Optimized for RetinaFace)
   Future<AttendanceResponse> markAttendance(File imageFile) async {
     try {
       var request = http.MultipartRequest(
@@ -19,7 +20,7 @@ class ApiService {
         await http.MultipartFile.fromPath('file', imageFile.path),
       );
 
-      // Timeout ko 60 seconds kar diya hai kyunke DeepFace processing mein time leta hai
+      // RetinaFace slow hota hai, isliye 60 seconds ka wait zaroori hai
       var streamedResponse = await request.send().timeout(
         const Duration(seconds: 60),
       );
@@ -29,12 +30,19 @@ class ApiService {
       if (streamedResponse.statusCode == 200) {
         return AttendanceResponse.fromJson(jsonDecode(responseData));
       } else {
-        throw Exception("Server Error: ${streamedResponse.statusCode}");
+        var errorData = jsonDecode(responseData);
+        throw Exception(errorData['message'] ?? "Server Error");
       }
+    } on TimeoutException {
+      throw Exception(
+        "Processing mein boht waqt lag raha hai. Accuracy ke liye RetinaFace scan jari hai, dobara koshish karein.",
+      );
     } on SocketException {
-      throw Exception("Server tak pohnchna mumkin nahi. IP check karein.");
+      throw Exception(
+        "Connection Error: Server se rabta nahi ho raha. IP check karein.",
+      );
     } catch (e) {
-      throw Exception("Attendance mark karne mein masla hua: $e");
+      throw Exception("Error: $e");
     }
   }
 
@@ -51,6 +59,7 @@ class ApiService {
         await http.MultipartFile.fromPath('file', imageFile.path),
       );
 
+      // Registration fast hoti hai isliye 30s kaafi hain
       var response = await request.send().timeout(const Duration(seconds: 30));
 
       return response.statusCode == 200;
