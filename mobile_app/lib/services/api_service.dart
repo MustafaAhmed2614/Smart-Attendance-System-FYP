@@ -6,7 +6,7 @@ import '../models/attendance_model.dart';
 
 class ApiService {
   // Demo se pehle terminal mein 'ipconfig getifaddr en0' karke IP check lazmi karein
-  final String baseUrl = "http://192.168.0.114:8000";
+  final String baseUrl = "http://192.168.0.198:8000";
 
   // Attendance Mark karne ka function (Optimized for RetinaFace)
   // markAttendance function ko update karein
