@@ -6,7 +6,7 @@ import '../models/attendance_model.dart';
 
 class ApiService {
   // Demo se pehle terminal mein 'ipconfig getifaddr en0' karke IP check lazmi karein
-  final String baseUrl = "http://192.168.0.198:8000";
+  final String baseUrl = "http://192.168.1.16:8000";
 
   // Attendance Mark karne ka function (Optimized for RetinaFace)
   // markAttendance function ko update karein
@@ -51,24 +51,47 @@ class ApiService {
   }
 
   // Naya Student Register karne ka function
-  Future<bool> registerStudent(String name, File imageFile) async {
+  Future<bool> registerStudent({
+    required String name,
+    required String rollNo,
+    required File frontImage,
+    required File leftImage,
+    required File rightImage,
+  }) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$baseUrl/register-student/'),
-      );
+      var uri = Uri.parse(
+        '$baseUrl/register',
+      ); // Apne backend ke endpoint ka naam check kar lein
+      var request = http.MultipartRequest('POST', uri);
 
+      // 1. Text Data add karein
       request.fields['name'] = name;
+      request.fields['roll_number'] =
+          rollNo; // Python API mein jo naam rakha hai wo likhein
+
+      // 2. Teeno Tasveerein (Files) add karein
       request.files.add(
-        await http.MultipartFile.fromPath('file', imageFile.path),
+        await http.MultipartFile.fromPath('front_image', frontImage.path),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath('left_image', leftImage.path),
+      );
+      request.files.add(
+        await http.MultipartFile.fromPath('right_image', rightImage.path),
       );
 
-      // Registration fast hoti hai isliye 30s kaafi hain
-      var response = await request.send().timeout(const Duration(seconds: 30));
+      // 3. Request Server ko bhej dein
+      var response = await request.send();
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        print("Registration Successful!");
+        return true;
+      } else {
+        print("Registration Failed with status: ${response.statusCode}");
+        return false;
+      }
     } catch (e) {
-      print("Registration Error: $e");
+      print("Error calling API: $e");
       return false;
     }
   }

@@ -6,7 +6,7 @@ import os
 from deepface import DeepFace
 import shutil
 import uuid
-import traceback # 👈 Naya tool jo chhupay hue errors pakrega
+import traceback 
 
 app = FastAPI()
 
@@ -42,20 +42,43 @@ if not os.path.exists("./students_pics"):
 def read_root():
     return {"message": "FYP Smart Attendance API is Live!"}
 
-# 1. REGISTER STUDENT (With X-Ray Logging)
-@app.post("/register-student/")
-async def register_student(name: str = Form(...), file: UploadFile = File(...)):
+# 1. REGISTER STUDENT (Updated for 3 Images & Roll Number)
+@app.post("/register") # Flutter ab '/register' par call bhej raha hai
+async def register_student(
+    name: str = Form(...), 
+    roll_number: str = Form(...),
+    front_image: UploadFile = File(...),
+    left_image: UploadFile = File(...),
+    right_image: UploadFile = File(...)
+):
     try:
-        print(f"\n--- 📥 NEW REGISTRATION REQUEST: {name} ---")
+        print(f"\n--- 📥 NEW REGISTRATION REQUEST: {name} ({roll_number}) ---")
         
-        unique_id = uuid.uuid4().hex[:5]
-        file_name = f"{name}_{unique_id}.jpg"
-        file_path = os.path.join("./students_pics", file_name)
-        
-        print(f"📸 Saving photo to: {file_path}")
-        
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Database mein student ka record add karna
+        conn = sqlite3.connect('attendance.db')
+        cursor = conn.cursor()
+        try:
+            # Agar same roll number pehle se hai toh error se bachne ke liye IGNORE use kiya
+            cursor.execute("INSERT OR IGNORE INTO students (name, roll_number) VALUES (?, ?)", (name, roll_number))
+            conn.commit()
+        except Exception as db_err:
+            print(f"DB Warning: {db_err}")
+        finally:
+            conn.close()
+
+        # Teeno files ko save karne ka logic (Naming aesi rakhi hai ke detection code na break ho)
+        # Format: Name_RollNumber_Angle.jpg -> e.g., Mustafa_SP23CS001_front.jpg
+        files_to_save = {
+            f"{name}_{roll_number}_front.jpg": front_image,
+            f"{name}_{roll_number}_left.jpg": left_image,
+            f"{name}_{roll_number}_right.jpg": right_image
+        }
+
+        for file_name, file_obj in files_to_save.items():
+            file_path = os.path.join("./students_pics", file_name)
+            print(f"📸 Saving photo to: {file_path}")
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file_obj.file, buffer)
             
         print("🗑️ Deleting old PKL cache so AI learns new faces...")
         for f in os.listdir("./students_pics"):
@@ -63,16 +86,16 @@ async def register_student(name: str = Form(...), file: UploadFile = File(...)):
                 os.remove(os.path.join("./students_pics", f))
                 print(f"   -> Deleted: {f}")
 
-        print(f"✅ REGISTRATION SUCCESSFUL FOR {name}\n")
-        return {"status": "Success", "message": f"Photo added for {name}!"}
+        print(f"✅ REGISTRATION SUCCESSFUL FOR {name} with 3 Angles\n")
+        return {"status": "Success", "message": f"3 Photos added for {name}!"}
     
     except Exception as e:
         print("\n‼️ ‼️ REGISTRATION ERROR ‼️ ‼️")
-        traceback.print_exc() # Ye exact line number aur wajah batayega!
+        traceback.print_exc() 
         print("‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️\n")
         return {"status": "Error", "message": str(e)}
 
-# 2. DETECT ATTENDANCE
+# 2. DETECT ATTENDANCE (Isme koi change nahi kiya, yeh perfectly theek hai!)
 @app.post("/detect-attendance/")
 async def detect_attendance(file: UploadFile = File(...)):
     unique_filename = f"temp_{uuid.uuid4()}.jpg"
@@ -94,7 +117,7 @@ async def detect_attendance(file: UploadFile = File(...)):
         detected_names = set()
         
         print("\n" + "="*50)
-        print("🔍 SCANNING WITH FACENET512...")
+        print("🔍 SCANNING WITH VGG-FACE...")
         
         for i, res in enumerate(results):
             if not res.empty:
@@ -102,7 +125,7 @@ async def detect_attendance(file: UploadFile = File(...)):
                 best_match_path = best_match_row['identity']
                 distance = best_match_row['distance']
                 
-                # Name Extract (e.g., Mustafa_abc12 -> Mustafa)
+                # Yeh tumhara existing logic perfect kaam karega naye names (Mustafa_Roll_front) par bhi
                 raw_name = os.path.basename(best_match_path).split('.')[0] 
                 clean_name = raw_name.split('_')[0] 
 
