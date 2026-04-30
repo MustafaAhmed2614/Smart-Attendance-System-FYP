@@ -53,7 +53,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         title: Text('Dashboard'),
         actions: [
           IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
+            icon: Icon(Icons.logout, color: Colors.blue),
             tooltip: 'Logout',
             onPressed: () {
               // 🚀 PRO TIP: pushAndRemoveUntil saari pichli screens ko delete kar deta hai.

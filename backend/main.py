@@ -225,23 +225,42 @@ def get_my_attendance(roll_number: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        # Pehle check karein ke is roll number ka naam kya hai
+        
+        # Step 1: Sab se pehle Student ka naam dhoondein 'students' table se
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
         if not student:
-            return {"status": "Error", "message": "Student not found in database."}
+            conn.close()
+            return {"status": "Error", "message": "Student not found in database!"}
             
-        student_name = student[0]
+        # Agar db_connection mein row_factory lagi hai toh dictionary ki tarah use karein
+        # Agar nahi lagi toh index [0] use karein. Hum dono handle kar lete hain:
+        student_name = student["name"] if isinstance(student, sqlite3.Row) else student[0]
         
-        # Ab us naam ki saari attendance nikal lein
-        cursor.execute(
-            "SELECT status, timestamp FROM attendance_logs WHERE student_name = ? ORDER BY timestamp DESC", 
-            (student_name,)
-        )
-        logs = cursor.fetchall()
+        # Step 2: Ab is naam se uski attendance history nikalein
+        cursor.execute('''
+            SELECT status, timestamp 
+            FROM attendance_logs 
+            WHERE student_name = ? 
+            ORDER BY timestamp DESC
+        ''', (student_name,))
+        
+        records = cursor.fetchall()
         conn.close()
         
-        return {"status": "Success", "student_name": student_name, "logs": logs}
+        # Flutter ko bhejne ke liye list banayen
+        formatted_logs = []
+        for row in records:
+            status = row["status"] if isinstance(row, sqlite3.Row) else row[0]
+            timestamp = row["timestamp"] if isinstance(row, sqlite3.Row) else row[1]
+            formatted_logs.append([status, timestamp])
+            
+        return {
+            "status": "Success", 
+            "student_name": student_name,  # <--- Yeh naam Flutter app ko jayega!
+            "logs": formatted_logs
+        }
+        
     except Exception as e:
         return {"status": "Error", "message": str(e)}
