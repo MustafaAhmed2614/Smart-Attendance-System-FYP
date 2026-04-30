@@ -1,49 +1,27 @@
+# main.py
 from fastapi import FastAPI, File, UploadFile, Form
-import cv2
-import numpy as np
-import sqlite3
 import os
-from deepface import DeepFace
 import shutil
 import uuid
 import traceback 
 
+# Clean Architecture imports
+from db.database import init_db, get_db_connection
+from services.ai_engine import recognize_faces
+
 app = FastAPI()
 
-# --- DATABASE SETUP ---
-def init_db():
-    conn = sqlite3.connect('attendance.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            roll_number TEXT UNIQUE NOT NULL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS attendance_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_name TEXT,
-            status TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
+# System Start-up setup
 init_db()
-
-# Ensure folder exists
 if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
 
 @app.get("/")
 def read_root():
-    return {"message": "FYP Smart Attendance API is Live!"}
+    return {"message": "FYP Smart Attendance API is Live! (Clean Architecture)"}
 
-# 1. REGISTER STUDENT (Updated for 3 Images & Roll Number)
-@app.post("/register") # Flutter ab '/register' par call bhej raha hai
+# 1. REGISTER STUDENT
+@app.post("/register")
 async def register_student(
     name: str = Form(...), 
     roll_number: str = Form(...),
@@ -54,11 +32,9 @@ async def register_student(
     try:
         print(f"\n--- 📥 NEW REGISTRATION REQUEST: {name} ({roll_number}) ---")
         
-        # Database mein student ka record add karna
-        conn = sqlite3.connect('attendance.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         try:
-            # Agar same roll number pehle se hai toh error se bachne ke liye IGNORE use kiya
             cursor.execute("INSERT OR IGNORE INTO students (name, roll_number) VALUES (?, ?)", (name, roll_number))
             conn.commit()
         except Exception as db_err:
@@ -66,8 +42,6 @@ async def register_student(
         finally:
             conn.close()
 
-        # Teeno files ko save karne ka logic (Naming aesi rakhi hai ke detection code na break ho)
-        # Format: Name_RollNumber_Angle.jpg -> e.g., Mustafa_SP23CS001_front.jpg
         files_to_save = {
             f"{name}_{roll_number}_front.jpg": front_image,
             f"{name}_{roll_number}_left.jpg": left_image,
@@ -95,7 +69,7 @@ async def register_student(
         print("‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️\n")
         return {"status": "Error", "message": str(e)}
 
-# 2. DETECT ATTENDANCE (Isme koi change nahi kiya, yeh perfectly theek hai!)
+# 2. DETECT ATTENDANCE
 @app.post("/detect-attendance/")
 async def detect_attendance(file: UploadFile = File(...)):
     unique_filename = f"temp_{uuid.uuid4()}.jpg"
@@ -105,46 +79,11 @@ async def detect_attendance(file: UploadFile = File(...)):
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        results = DeepFace.find(
-            img_path=temp_file_path,
-            db_path="./students_pics",
-            model_name="VGG-Face", 
-            enforce_detection=False, 
-            detector_backend="retinaface", 
-            align=True
-        )
-
-        detected_names = set()
-        
-        print("\n" + "="*50)
-        print("🔍 SCANNING WITH VGG-FACE...")
-        
-        for i, res in enumerate(results):
-            if not res.empty:
-                best_match_row = res.iloc[0]
-                best_match_path = best_match_row['identity']
-                distance = best_match_row['distance']
-                
-                # Yeh tumhara existing logic perfect kaam karega naye names (Mustafa_Roll_front) par bhi
-                raw_name = os.path.basename(best_match_path).split('.')[0] 
-                clean_name = raw_name.split('_')[0] 
-
-                print(f"👤 Face {i+1}: Matched with '{clean_name}' (File: {raw_name}) | Distance: {distance:.4f}")
-
-                if distance < 0.55: 
-                    detected_names.add(clean_name)
-                    print(f"   ✅ SUCCESS: Added {clean_name}")
-                else:
-                    print(f"   ❌ IGNORED: Distance too high ({distance:.4f})")
-            else:
-                print(f"❓ Face {i+1}: No match found in database.")
-
-        print("="*50 + "\n")
-
-        final_names = list(detected_names)
+        # 🚀 Calling the isolated AI Engine logic!
+        final_names = recognize_faces(temp_file_path)
 
         if final_names:
-            conn = sqlite3.connect('attendance.db')
+            conn = get_db_connection()
             cursor = conn.cursor()
             for name in final_names:
                 cursor.execute("INSERT INTO attendance_logs (student_name, status) VALUES (?, ?)", (name, "Present"))
@@ -169,7 +108,7 @@ async def detect_attendance(file: UploadFile = File(...)):
 # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
-    conn = sqlite3.connect('attendance.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM attendance_logs ORDER BY timestamp DESC")
     logs = cursor.fetchall()
