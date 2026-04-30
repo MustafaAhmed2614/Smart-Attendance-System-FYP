@@ -148,3 +148,16 @@ def export_attendance():
     except Exception as e:
         print(f"‼️ EXPORT ERROR: {str(e)}")
         return {"status": "Error", "message": str(e)}
+    
+# 5. CLEAR ATTENDANCE LOGS (Admin Only)
+@app.delete("/clear-attendance/")
+def clear_attendance():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM attendance_logs") # Sirf logs delete honge, students nahi
+        conn.commit()
+        conn.close()
+        return {"status": "Success", "message": "Purani saari attendance clear ho gayi!"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}

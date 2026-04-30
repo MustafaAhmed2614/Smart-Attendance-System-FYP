@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import 'registration_screen.dart';
+import 'teacher_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -152,6 +153,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 foregroundColor: Colors.white,
               ),
               child: const Text("Go to Registration"),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                // Nayi screen par jane ka code (Navigation)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => TeacherDashboard()),
+                );
+              },
+              icon: Icon(Icons.dashboard, color: Colors.white),
+              label: Text(
+                "Teacher Dashboard",
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor:
+                    Colors.blueAccent, // Button ka background color
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             ),
           ],
         ),

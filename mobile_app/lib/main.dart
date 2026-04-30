@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart'; // Apne folder structure ke mutabiq path check karlein
+import 'screens/home_screen.dart';
+
+ // Apne folder structure ke mutabiq path check karlein
 
 void main() {
   runApp(const MyApp());
