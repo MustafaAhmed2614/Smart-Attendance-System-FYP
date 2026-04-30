@@ -10,8 +10,21 @@ import io
 # Clean Architecture imports
 from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
-
+from pydantic import BaseModel
+import sqlite3
 app = FastAPI()
+
+class UserSignup(BaseModel):
+    username: str
+    password: str
+    role: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+
 
 # System Start-up setup
 init_db()
@@ -159,5 +172,76 @@ def clear_attendance():
         conn.commit()
         conn.close()
         return {"status": "Success", "message": "Purani saari attendance clear ho gayi!"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+    
+# ==========================================
+# 🔐 AUTHENTICATION & STUDENT APIs
+# ==========================================
+
+# 6. SIGNUP API (Naya Account Banane ke liye)
+@app.post("/signup/")
+def signup(user: UserSignup):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Naya user database mein daalein
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (user.username, user.password, user.role.lower())
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "Success", "message": f"{user.role} account created for {user.username}"}
+    except sqlite3.IntegrityError:
+        return {"status": "Error", "message": "Username/Roll Number already exists!"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+
+# 7. LOGIN API (Account Check karne ke liye)
+@app.post("/login/")
+def login(user: UserLogin):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Database mein check karein ke is username aur password ka koi record hai?
+        cursor.execute(
+            "SELECT role FROM users WHERE username = ? AND password = ?",
+            (user.username, user.password)
+        )
+        record = cursor.fetchone()
+        conn.close()
+
+        if record:
+            return {"status": "Success", "role": record[0], "message": "Login Successful!"}
+        else:
+            return {"status": "Error", "message": "Invalid Username or Password"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+
+# 8. STUDENT ATTENDANCE API (Sirf apni attendance dekhne ke liye)
+@app.get("/my-attendance/{roll_number}")
+def get_my_attendance(roll_number: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        # Pehle check karein ke is roll number ka naam kya hai
+        cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
+        student = cursor.fetchone()
+        
+        if not student:
+            return {"status": "Error", "message": "Student not found in database."}
+            
+        student_name = student[0]
+        
+        # Ab us naam ki saari attendance nikal lein
+        cursor.execute(
+            "SELECT status, timestamp FROM attendance_logs WHERE student_name = ? ORDER BY timestamp DESC", 
+            (student_name,)
+        )
+        logs = cursor.fetchall()
+        conn.close()
+        
+        return {"status": "Success", "student_name": student_name, "logs": logs}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
