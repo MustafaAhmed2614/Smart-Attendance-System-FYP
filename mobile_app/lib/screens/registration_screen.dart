@@ -49,7 +49,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (_nameController.text.isEmpty || _rollNoController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Name aur Roll Number dono zaroori hain!"),
+          content: Text("Both Name and Roll Number are required!"),
         ),
       );
       return;
@@ -60,7 +60,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Teeno angles ki photos (Front, Left, Right) zaroori hain!",
+            "Photos from all 3 angles (Front, Left, Right) are required!",
           ),
         ),
       );
@@ -81,7 +81,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
-      _showDialog("Success ✅", "Student register ho gaya hai!");
+      _showDialog("Success ✅", "Student registered successfully!");
       // Form saaf kar dein
       _nameController.clear();
       _rollNoController.clear();
@@ -91,7 +91,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _rightImage = null;
       });
     } else {
-      _showDialog("Error ❌", "Registration nahi ho saki. Server check karein.");
+      _showDialog(
+        "Error ❌",
+        "Registration failed. Please check the server connection.",
+      );
     }
   }
 
