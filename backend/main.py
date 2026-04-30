@@ -4,7 +4,9 @@ import os
 import shutil
 import uuid
 import traceback 
-
+from fastapi import Response
+import csv                   
+import io                     
 # Clean Architecture imports
 from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
@@ -114,3 +116,35 @@ def view_attendance():
     logs = cursor.fetchall()
     conn.close()
     return {"logs": logs}
+
+# 4. EXPORT ATTENDANCE TO EXCEL (CSV)
+@app.get("/export-attendance/")
+def export_attendance():
+    try:
+        # 1. Database se data nikalna
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT student_name, status, timestamp FROM attendance_logs ORDER BY timestamp DESC")
+        logs = cursor.fetchall()
+        conn.close()
+
+        # 2. Memory mein ek CSV file banana
+        stream = io.StringIO()
+        writer = csv.writer(stream)
+
+        # 3. Excel Sheet ke Columns ke naam likhna (Headers)
+        writer.writerow(["Student Name", "Status", "Time"])
+
+        # 4. Database ka saara data Excel sheet mein likhna
+        for row in logs:
+            writer.writerow(row)
+
+        # 5. File ko download ke liye bhejna
+        response = Response(content=stream.getvalue(), media_type="text/csv")
+        response.headers["Content-Disposition"] = "attachment; filename=Attendance_Report.csv"
+        
+        return response
+
+    except Exception as e:
+        print(f"‼️ EXPORT ERROR: {str(e)}")
+        return {"status": "Error", "message": str(e)}
