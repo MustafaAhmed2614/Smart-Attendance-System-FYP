@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_app/constants.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../constants.dart';
+import 'login_screen.dart'; // Shuru mein 2 dots (..) aur ek slash
 
 class StudentDashboard extends StatefulWidget {
   final String rollNumber; // Login ke waqt jo username/roll number dala tha
@@ -11,8 +14,7 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  final String backendUrl =
-      "http://192.168.1.17:8000"; // Apna IP check kar lein
+  final String backendUrl = AppConfig.backendUrl; // Apna IP check kar lein
   List<dynamic> myLogs = [];
   String studentName = "";
   bool isLoading = true;
@@ -48,8 +50,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Attendance'),
-        backgroundColor: Colors.orangeAccent,
+        title: Text('Dashboard'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout',
+            onPressed: () {
+              // 🚀 PRO TIP: pushAndRemoveUntil saari pichli screens ko delete kar deta hai.
+              // Is se user mobile ka back button daba kar wapas andar nahi aa sakta.
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                (Route<dynamic> route) =>
+                    false, // Saari history false (clear) kar do
+              );
+            },
+          ),
+        ],
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_app/constants.dart';
 import 'package:fyp_app/screens/home_screen.dart';
 import 'package:fyp_app/screens/student_dashboard.dart';
 import 'package:http/http.dart' as http;
+import 'signup_screen.dart';
 import 'dart:convert';
-import 'teacher_dashboard.dart'; // Teacher ki screen
+import 'teacher_dashboard.dart';
+import '../constants.dart'; // Shuru mein 2 dots (..) aur ek slash Teacher ki screen
 // import 'main.dart'; // Agar aapki purani main screen ka naam kuch aur hai toh yahan link karein
 
 class LoginScreen extends StatefulWidget {
@@ -13,7 +16,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   // Yahan apna FastAPI wala IP address lagayen
-  final String backendUrl = "http://192.168.0.198:8000";
+  final String backendUrl = AppConfig.backendUrl;
 
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -112,6 +115,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 18, color: Colors.white),
                     ),
                   ),
+            SizedBox(height: 15),
+            // Login button ke baad yeh lagayen:
+            SizedBox(height: 10),
+            TextButton(
+              onPressed: () {
+                // Signup Screen par le kar jaye
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SignupScreen()),
+                );
+              },
+              child: Text("Don't have an account? Sign Up"),
+            ),
           ],
         ),
       ),

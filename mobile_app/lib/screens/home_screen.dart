@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import 'registration_screen.dart';
 import 'teacher_dashboard.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,9 +87,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text("FYP Smart Attendance"),
-        centerTitle: true,
-        elevation: 2,
+        title: Text('ATTENDANCE AI'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.blue),
+            tooltip: 'Logout',
+            onPressed: () {
+              // Saari history clear kar ke Login par wapas bhejein
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: Container(
         padding: const EdgeInsets.all(20),

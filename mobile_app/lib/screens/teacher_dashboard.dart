@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import '../constants.dart'; // Shuru mein 2 dots (..) aur ek slash
 
 class TeacherDashboard extends StatefulWidget {
   @override
@@ -10,7 +11,7 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   // Yahan apna IP address lagayen jo aap api ke liye use kar rahe hain
-  final String backendUrl = "http://192.168.0.198:8000";
+  final String backendUrl = AppConfig.backendUrl;
 
   List<dynamic> attendanceLogs = [];
   bool isLoading = true;
