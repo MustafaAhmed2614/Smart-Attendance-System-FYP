@@ -154,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: const Text("Go to Registration"),
             ),
+            const SizedBox(height: 15),
             ElevatedButton.icon(
               onPressed: () {
                 // Nayi screen par jane ka code (Navigation)
