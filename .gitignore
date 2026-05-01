@@ -16,3 +16,4 @@ mobile_app/build/
 
 # OS
 .DS_Store
+*.pyc
