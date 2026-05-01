@@ -83,7 +83,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           : ListView.builder(
               itemCount: attendanceLogs.length,
               itemBuilder: (context, index) {
-                // API Format: [id, name, status, timestamp]
+                // Ab data Map/Dictionary ki shakal mein aa raha hai
                 var log = attendanceLogs[index];
                 return Card(
                   margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -92,13 +92,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       backgroundColor: Colors.green,
                       child: Icon(Icons.check, color: Colors.white),
                     ),
+                    // 1. log[1] ki jagah log['student_name']
                     title: Text(
-                      log[1],
+                      log['student_name'].toString(),
                       style: TextStyle(fontWeight: FontWeight.bold),
-                    ), // Name
-                    subtitle: Text("Time: ${log[3]}"), // Timestamp
+                    ),
+                    // 2. log[3] ki jagah log['timestamp']
+                    subtitle: Text("Time: ${log['timestamp']}"),
+                    // 3. log[2] ki jagah log['status']
                     trailing: Text(
-                      log[2], // Status (Present)
+                      log['status'].toString(),
                       style: TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.bold,
