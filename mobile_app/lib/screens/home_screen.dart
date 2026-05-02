@@ -173,7 +173,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Nayi screen par jane ka code (Navigation)
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => TeacherDashboard()),
+                  MaterialPageRoute(
+                    builder: (context) => TeacherDashboard(
+                      teacherUsername:
+                          "TestTeacher", // Abhi testing ke liye koi bhi naam likh dein
+                    ),
+                  ),
                 );
               },
               icon: Icon(Icons.dashboard, color: Colors.white),

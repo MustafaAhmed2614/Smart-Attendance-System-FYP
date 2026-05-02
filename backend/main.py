@@ -23,6 +23,9 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class CourseCreate(BaseModel):
+    course_name: str
+    teacher_username: str
 
 
 
@@ -262,5 +265,129 @@ def get_my_attendance(roll_number: str):
             "logs": formatted_logs
         }
         
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+    
+
+# ==========================================
+# 🚀 NAYI APIs COURSES KE LIYE
+# ==========================================
+
+# 1. Naya Course Banane ki API
+@app.post("/add-course/")
+def add_course(course: CourseCreate):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Course ko database mein save kar rahe hain
+        cursor.execute(
+            "INSERT INTO courses (course_name, teacher_username) VALUES (?, ?)",
+            (course.course_name, course.teacher_username)
+        )
+        conn.commit()
+        conn.close()
+        
+        return {"status": "Success", "message": f"Course '{course.course_name}' added successfully!"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+
+
+# 2. Teacher ke apne Courses mangwane ki API
+@app.get("/my-courses/{teacher_username}")
+def get_my_courses(teacher_username: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Sirf us teacher ke courses nikalo jo login hai
+        cursor.execute(
+            "SELECT course_name FROM courses WHERE teacher_username = ?", 
+            (teacher_username,)
+        )
+        courses = cursor.fetchall()
+        conn.close()
+        
+        # Database se nikal kar ek saaf list banayen
+        course_list = []
+        for row in courses:
+            name = row["course_name"] if isinstance(row, sqlite3.Row) else row[0]
+            course_list.append(name)
+            
+        return {"status": "Success", "courses": course_list}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+    
+# ==========================================
+# 🚀 ADMIN API (Hybrid Flow)
+# ==========================================
+
+# Data aane ka format
+class AdminStudentCreate(BaseModel):
+    name: str
+    roll_number: str
+    course_name: str
+
+@app.post("/admin/add-student/")
+def admin_add_student(student: AdminStudentCreate):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Student ko database mein save karein 
+        # (face_status khud-ba-khud 'Pending' save ho jayega database rule ke mutabiq)
+        cursor.execute(
+            "INSERT INTO students (name, roll_number) VALUES (?, ?)",
+            (student.name, student.roll_number)
+        )
+        
+        # 2. Student ko uske course mein enroll karein
+        cursor.execute(
+            "INSERT INTO enrollments (roll_number, course_name) VALUES (?, ?)",
+            (student.roll_number, student.course_name)
+        )
+        
+        conn.commit()
+        conn.close()
+        
+        return {
+            "status": "Success", 
+            "message": f"Student {student.name} added successfully! Face registration is Pending."
+        }
+        
+    except sqlite3.IntegrityError:
+        # Agar roll number pehle se majood ho
+        return {"status": "Error", "message": "This Roll Number already exists in the system!"}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+    
+
+# 3. Pending Students ki list mangwane ki API
+@app.get("/pending-students/{course_name}")
+def get_pending_students(course_name: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Enrollments aur Students table ko join kar ke 'Pending' bachon ka data nikalna
+        cursor.execute('''
+            SELECT s.name, s.roll_number 
+            FROM students s
+            JOIN enrollments e ON s.roll_number = e.roll_number
+            WHERE e.course_name = ? AND s.face_status = 'Pending'
+        ''', (course_name,))
+        
+        pending_students = cursor.fetchall()
+        conn.close()
+        
+        # List ban banana taake Flutter ko asani se samajh aaye
+        student_list = []
+        for row in pending_students:
+            student_list.append({
+                "name": row["name"], 
+                "roll_number": row["roll_number"]
+            })
+            
+        return {"status": "Success", "pending_students": student_list}
     except Exception as e:
         return {"status": "Error", "message": str(e)}

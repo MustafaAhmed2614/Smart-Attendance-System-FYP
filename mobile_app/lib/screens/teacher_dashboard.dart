@@ -1,110 +1,174 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:url_launcher/url_launcher.dart';
-import '../constants.dart'; // Shuru mein 2 dots (..) aur ek slash
+import '../constants.dart';
+import 'login_screen.dart';
+import 'course_attendance_screen.dart';
+// Note: Hum agli screen mein CourseAttendance wali file banayenge
 
 class TeacherDashboard extends StatefulWidget {
+  final String teacherUsername; // Teacher ka username yahan aayega
+
+  TeacherDashboard({required this.teacherUsername});
+
   @override
   _TeacherDashboardState createState() => _TeacherDashboardState();
 }
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
-  // Yahan apna IP address lagayen jo aap api ke liye use kar rahe hain
   final String backendUrl = AppConfig.backendUrl;
-
-  List<dynamic> attendanceLogs = [];
+  List<dynamic> courses = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchAttendance();
+    fetchCourses();
   }
 
-  // 1. Backend se List mangwane ka function
-  Future<void> fetchAttendance() async {
+  // 1. Backend se Courses mangwane ka function
+  Future<void> fetchCourses() async {
+    setState(() => isLoading = true);
     try {
       final response = await http.get(
-        Uri.parse('$backendUrl/view-attendance/'),
+        Uri.parse('$backendUrl/my-courses/${widget.teacherUsername}'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          // Hamari API {"logs": [...]} bhej rahi hai
-          attendanceLogs = data['logs'];
-          isLoading = false;
-        });
+        if (data['status'] == 'Success') {
+          setState(() {
+            courses = data['courses'];
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      print("Error fetching data: $e");
-      setState(() {
-        isLoading = false;
-      });
+      print("Error fetching courses: $e");
+      setState(() => isLoading = false);
     }
   }
 
-  // 2. Excel Download karne ka function
-  Future<void> downloadExcelReport() async {
-    final Uri excelUrl = Uri.parse('$backendUrl/export-attendance/');
-    if (await canLaunchUrl(excelUrl)) {
-      await launchUrl(excelUrl, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not download file. Check server connection.'),
-        ),
+  // 2. Naya Course Add karne ka function
+  Future<void> addCourse(String courseName) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$backendUrl/add-course/'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "course_name": courseName,
+          "teacher_username": widget.teacherUsername,
+        }),
       );
+      final data = jsonDecode(response.body);
+      if (data['status'] == 'Success') {
+        fetchCourses(); // List ko refresh karein
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Error adding course: $e");
     }
+  }
+
+  // 3. Add Course ka Pop-up Dialog
+  void showAddCourseDialog() {
+    TextEditingController courseController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Create New Course"),
+        content: TextField(
+          controller: courseController,
+          decoration: InputDecoration(hintText: "e.g. Software Engineering"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (courseController.text.isNotEmpty) {
+                Navigator.pop(context); // Dialog band karein
+                addCourse(courseController.text); // Course save karein
+              }
+            },
+            child: Text("Create"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Teacher Dashboard'),
+        title: Text('My Courses'),
         backgroundColor: Colors.blueAccent,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
+            icon: Icon(Icons.logout),
             onPressed: () {
-              setState(() {
-                isLoading = true;
-              });
-              fetchAttendance();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => LoginScreen()),
+                (Route<dynamic> route) => false,
+              );
             },
           ),
         ],
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : attendanceLogs.isEmpty
-          ? Center(child: Text("No attendance marked yet."))
-          : ListView.builder(
-              itemCount: attendanceLogs.length,
+          : courses.isEmpty
+          ? Center(child: Text("No courses found. Create one!"))
+          : GridView.builder(
+              padding: EdgeInsets.all(15),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, // Ek line mein 2 boxes
+                crossAxisSpacing: 15,
+                mainAxisSpacing: 15,
+                childAspectRatio: 1.2,
+              ),
+              itemCount: courses.length,
               itemBuilder: (context, index) {
-                // Ab data Map/Dictionary ki shakal mein aa raha hai
-                var log = attendanceLogs[index];
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.green,
-                      child: Icon(Icons.check, color: Colors.white),
+                String courseName = courses[index];
+                return GestureDetector(
+                  onTap: () {
+                    // YAHAN HUM AGLI SCREEN PAR JAYENGE
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CourseAttendanceScreen(
+                          courseName: courseName,
+                          teacherUsername: widget.teacherUsername,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    elevation: 5,
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
                     ),
-                    // 1. log[1] ki jagah log['student_name']
-                    title: Text(
-                      log['student_name'].toString(),
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    // 2. log[3] ki jagah log['timestamp']
-                    subtitle: Text("Time: ${log['timestamp']}"),
-                    // 3. log[2] ki jagah log['status']
-                    trailing: Text(
-                      log['status'].toString(),
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          courseName,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -112,10 +176,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: downloadExcelReport,
-        icon: Icon(Icons.download),
-        label: Text("Export Excel"),
-        backgroundColor: Colors.green,
+        onPressed: showAddCourseDialog,
+        icon: Icon(Icons.add),
+        label: Text("Add Course"),
+        backgroundColor: Colors.blueAccent,
       ),
     );
   }
