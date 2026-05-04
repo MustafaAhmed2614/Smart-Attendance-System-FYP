@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import '../constants.dart'; // Apni constants file ka path zaroor check kar lijiye ga
+import '../constants.dart';
 
 class CourseAttendanceScreen extends StatefulWidget {
   final String courseName;
@@ -54,7 +54,107 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 📸 NAYA UI: Face Register karne ka Popup
+  // ➕ NAYA: App se naya Student Add Karne Ka Function (Testing ke liye)
+  // ==========================================
+  Future<void> addStudentToDatabase(String name, String rollNo) async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Adding student to pending list...")),
+      );
+
+      final response = await http.post(
+        Uri.parse('$backendUrl/admin/add-student/'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "name": name,
+          "roll_number": rollNo,
+          "course_name": widget.courseName,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("✅ Student Added!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        fetchPendingStudents(); // 🔄 Naya bacha aate hi list refresh karo
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ Failed to add student"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print("Error adding student: $e");
+    }
+  }
+
+  // Naya bacha add karne ka Popup Dialog
+  void showAddStudentDialog() {
+    TextEditingController nameController = TextEditingController();
+    TextEditingController rollNoController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          title: Text("Add New Student"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(
+                  labelText: "Student Name",
+                  prefixIcon: Icon(Icons.person),
+                ),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: rollNoController,
+                decoration: InputDecoration(
+                  labelText: "Roll Number",
+                  prefixIcon: Icon(Icons.badge),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancel", style: TextStyle(color: Colors.red)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.isNotEmpty &&
+                    rollNoController.text.isNotEmpty) {
+                  Navigator.pop(context); // Popup band karo
+                  await addStudentToDatabase(
+                    nameController.text,
+                    rollNoController.text,
+                  ); // Backend par bhejo
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+              ),
+              child: Text("Add to List", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // 📸 UI: Face Register karne ka Popup
   // ==========================================
   void showRegistrationDialog(
     BuildContext context,
@@ -68,7 +168,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Bahar click karne se band nahi hoga
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -90,7 +190,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 15),
 
-                    // FRONT FACE BUTTON
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
@@ -114,7 +213,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 10),
 
-                    // LEFT FACE BUTTON
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
@@ -138,7 +236,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 10),
 
-                    // RIGHT FACE BUTTON
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
@@ -169,20 +266,19 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   child: Text("Cancel", style: TextStyle(color: Colors.red)),
                 ),
                 ElevatedButton(
-                  // 🚀 Button tab on hoga jab teeno tasweerein aa jayengi
                   onPressed:
                       (frontImage != null &&
                           leftImage != null &&
                           rightImage != null)
                       ? () {
-                          Navigator.pop(context); // Popup band karo
+                          Navigator.pop(context);
                           uploadFacesToAPI(
                             studentName,
                             rollNumber,
                             frontImage!,
                             leftImage!,
                             rightImage!,
-                          ); // API ko bhejo
+                          );
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
@@ -202,7 +298,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 🚀 API: 3 Tasweerein Backend par bhejna
+  // API: 3 Tasweerein Backend par bhejna
   // ==========================================
   Future<void> uploadFacesToAPI(
     String studentName,
@@ -242,7 +338,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        fetchPendingStudents(); // 🔄 List ko refresh karo taake naam gayab ho jaye
+        fetchPendingStudents();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -272,7 +368,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Opening camera for attendance...")),
       );
-
       final image = await picker.pickImage(source: ImageSource.camera);
       if (image == null) return;
 
@@ -343,9 +438,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         ),
         body: TabBarView(
           children: [
-            // ==========================================
             // TAB 1: DAILY ATTENDANCE
-            // ==========================================
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -360,7 +453,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   SizedBox(height: 30),
                   ElevatedButton.icon(
                     onPressed: () {
-                      markAttendance(); // 🚀 Function call
+                      markAttendance();
                     },
                     icon: Icon(Icons.camera_alt),
                     label: Text(
@@ -379,9 +472,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               ),
             ),
 
-            // ==========================================
             // TAB 2: PENDING REGISTRATIONS
-            // ==========================================
             isLoading
                 ? Center(child: CircularProgressIndicator())
                 : pendingStudents.isEmpty
@@ -415,7 +506,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                           subtitle: Text("Roll No: ${student['roll_number']}"),
                           trailing: ElevatedButton(
                             onPressed: () {
-                              // 🚀 NAYA: Yahan naya Popup wala function call ho raha hai
                               showRegistrationDialog(
                                 context,
                                 student['name'],
@@ -432,6 +522,14 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     },
                   ),
           ],
+        ),
+
+        // 🚀 NAYA: Testing ke liye Student Add karne ka Floating Button
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: showAddStudentDialog,
+          icon: Icon(Icons.add, color: Colors.white),
+          label: Text("Add Student", style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.blueAccent,
         ),
       ),
     );
