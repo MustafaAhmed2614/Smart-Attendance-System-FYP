@@ -38,7 +38,9 @@ if not os.path.exists("./students_pics"):
 def read_root():
     return {"message": "FYP Smart Attendance API is Live! (Clean Architecture)"}
 
-# 1. REGISTER STUDENT
+# 1. REGISTER STUDENT (Hybrid Flow Updated)
+import os # Upar top par check kar lena ke yeh import hai ya nahi
+
 @app.post("/register")
 async def register_student(
     name: str = Form(...), 
@@ -48,18 +50,12 @@ async def register_student(
     right_image: UploadFile = File(...)
 ):
     try:
-        print(f"\n--- 📥 NEW REGISTRATION REQUEST: {name} ({roll_number}) ---")
+        print(f"\n--- 📥 NEW FACE REGISTRATION: {name} ({roll_number}) ---")
         
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("INSERT OR IGNORE INTO students (name, roll_number) VALUES (?, ?)", (name, roll_number))
-            conn.commit()
-        except Exception as db_err:
-            print(f"DB Warning: {db_err}")
-        finally:
-            conn.close()
-
+        # 🚀 YEH LINE MISSING THI: Yeh line khud check karegi aur folder bana degi!
+        os.makedirs("./students_pics", exist_ok=True)
+        
+        # 1. Tasweerein Save Karna
         files_to_save = {
             f"{name}_{roll_number}_front.jpg": front_image,
             f"{name}_{roll_number}_left.jpg": left_image,
@@ -72,21 +68,29 @@ async def register_student(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file_obj.file, buffer)
             
+        # 2. Purane AI models (PKL) delete karna taake naye faces add ho sakein
         print("🗑️ Deleting old PKL cache so AI learns new faces...")
         for f in os.listdir("./students_pics"):
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
-                print(f"   -> Deleted: {f}")
+                
+        # 3. Database mein status 'Pending' se 'Registered' karna
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE students SET face_status = 'Registered' WHERE roll_number = ?", 
+            (roll_number,)
+        )
+        conn.commit()
+        conn.close()
 
-        print(f"✅ REGISTRATION SUCCESSFUL FOR {name} with 3 Angles\n")
-        return {"status": "Success", "message": f"3 Photos added for {name}!"}
+        print(f"✅ REGISTRATION SUCCESSFUL FOR {name}\n")
+        return {"status": "Success", "message": f"Face Registered for {name}!"}
     
     except Exception as e:
         print("\n‼️ ‼️ REGISTRATION ERROR ‼️ ‼️")
         traceback.print_exc() 
-        print("‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️ ‼️\n")
         return {"status": "Error", "message": str(e)}
-
 # 2. DETECT ATTENDANCE
 @app.post("/detect-attendance/")
 async def detect_attendance(file: UploadFile = File(...)):

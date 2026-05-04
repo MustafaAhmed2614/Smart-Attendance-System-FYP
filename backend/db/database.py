@@ -64,7 +64,8 @@ def init_db():
     conn.close()
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    
+    conn = sqlite3.connect("attendance.db", timeout=10.0)
     # Is se data return karte waqt handle karna asaan hota hai
     conn.row_factory = sqlite3.Row 
     return conn
