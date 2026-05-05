@@ -54,10 +54,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // ➕ NAYA: App se naya Student Add Karne Ka Function (Testing ke liye)
-  // ==========================================
-  // ==========================================
-  // ➕ NAYA: App se naya Student Add Karne Ka Function (With Proper Error Handling)
+  // API: App se naya Student Add Karne Ka Function
   // ==========================================
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
@@ -77,7 +74,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
       if (!mounted) return;
 
-      // 🚀 NAYA KAAM: Backend ka asal jawab (JSON) parhna
       var data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
@@ -89,7 +85,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
         fetchPendingStudents(); // List refresh karo
       } else {
-        // 🚨 NAYA KAAM: Agar backend se error aaye toh screen par dikhao
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("❌ Error: ${data['message']}"),
@@ -152,11 +147,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               onPressed: () async {
                 if (nameController.text.isNotEmpty &&
                     rollNoController.text.isNotEmpty) {
-                  Navigator.pop(context); // Popup band karo
+                  Navigator.pop(context);
                   await addStudentToDatabase(
                     nameController.text,
                     rollNoController.text,
-                  ); // Backend par bhejo
+                  );
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -171,7 +166,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 📸 UI: Face Register karne ka Popup
+  // 📸 UI: Face Register karne ka Popup (WITH IMAGE PREVIEWS)
   // ==========================================
   void showRegistrationDialog(
     BuildContext context,
@@ -207,12 +202,21 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 15),
 
+                    // FRONT FACE
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      leading: Icon(Icons.face, color: Colors.blue),
+                      // 🚀 NAYA KAAM: Agar picture le li hai toh picture show karo, warna icon
+                      leading: frontImage != null
+                          ? CircleAvatar(
+                              backgroundImage: FileImage(frontImage!),
+                            )
+                          : CircleAvatar(
+                              backgroundColor: Colors.blue[50],
+                              child: Icon(Icons.face, color: Colors.blue),
+                            ),
                       title: Text("Front Face"),
                       trailing: Icon(
                         frontImage != null
@@ -230,12 +234,18 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 10),
 
+                    // LEFT FACE
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      leading: Icon(Icons.turn_left, color: Colors.blue),
+                      leading: leftImage != null
+                          ? CircleAvatar(backgroundImage: FileImage(leftImage!))
+                          : CircleAvatar(
+                              backgroundColor: Colors.blue[50],
+                              child: Icon(Icons.turn_left, color: Colors.blue),
+                            ),
                       title: Text("Left Face"),
                       trailing: Icon(
                         leftImage != null
@@ -253,12 +263,20 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ),
                     SizedBox(height: 10),
 
+                    // RIGHT FACE
                     ListTile(
                       tileColor: Colors.grey[100],
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      leading: Icon(Icons.turn_right, color: Colors.blue),
+                      leading: rightImage != null
+                          ? CircleAvatar(
+                              backgroundImage: FileImage(rightImage!),
+                            )
+                          : CircleAvatar(
+                              backgroundColor: Colors.blue[50],
+                              child: Icon(Icons.turn_right, color: Colors.blue),
+                            ),
                       title: Text("Right Face"),
                       trailing: Icon(
                         rightImage != null
@@ -368,12 +386,14 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       }
     } catch (e) {
       print("Upload Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Upload Error: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Upload Error: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -435,9 +455,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       }
     } catch (e) {
       print("Attendance Error: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -513,12 +535,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                           vertical: 5,
                         ),
                         child: ListTile(
+                          // 🚀 NAYA KAAM: Red warning sign ki jagah khoobsurat User Icon
                           leading: CircleAvatar(
-                            backgroundColor: Colors.redAccent,
-                            child: Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.white,
-                            ),
+                            backgroundColor: Colors.blue[100],
+                            child: Icon(Icons.person, color: Colors.blue[800]),
                           ),
                           title: Text(
                             student['name'],
@@ -533,7 +553,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 student['roll_number'],
                               );
                             },
-                            child: Text("Register Face"),
+                            child: Text("Scan Face"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                             ),
@@ -545,7 +565,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           ],
         ),
 
-        // 🚀 NAYA: Testing ke liye Student Add karne ka Floating Button
         floatingActionButton: FloatingActionButton.extended(
           onPressed: showAddStudentDialog,
           icon: Icon(Icons.add, color: Colors.white),
