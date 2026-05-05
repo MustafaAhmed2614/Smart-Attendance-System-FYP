@@ -56,6 +56,9 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   // ==========================================
   // ➕ NAYA: App se naya Student Add Karne Ka Function (Testing ke liye)
   // ==========================================
+  // ==========================================
+  // ➕ NAYA: App se naya Student Add Karne Ka Function (With Proper Error Handling)
+  // ==========================================
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -72,24 +75,38 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         }),
       );
 
-      if (response.statusCode == 200) {
+      if (!mounted) return;
+
+      // 🚀 NAYA KAAM: Backend ka asal jawab (JSON) parhna
+      var data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == 'Success') {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("✅ Student Added!"),
             backgroundColor: Colors.green,
           ),
         );
-        fetchPendingStudents(); // 🔄 Naya bacha aate hi list refresh karo
+        fetchPendingStudents(); // List refresh karo
       } else {
+        // 🚨 NAYA KAAM: Agar backend se error aaye toh screen par dikhao
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("❌ Failed to add student"),
+            content: Text("❌ Error: ${data['message']}"),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
       print("Error adding student: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ App Error: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -331,6 +348,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
       var response = await request.send();
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -384,6 +403,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       var response = await request.send();
       var responseData = await response.stream.bytesToString();
       var data = jsonDecode(responseData);
+
+      if (!mounted) return;
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
         List<dynamic> recognizedStudents = data['recognized_students'];
@@ -512,7 +533,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 student['roll_number'],
                               );
                             },
-                            child: Text("Scan Face"),
+                            child: Text("Register Face"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                             ),
