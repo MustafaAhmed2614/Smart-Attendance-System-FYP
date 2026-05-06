@@ -408,7 +408,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Opening camera for class photo...")),
       );
-      final image = await picker.pickImage(source: ImageSource.camera);
+      final image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 100, // 🚀 NAYI CHEEZ: 100% HD Quality
+        maxWidth: 1920, // 🚀 NAYI CHEEZ: Tasweer phatay nahi
+      );
       if (image == null) return;
 
       ScaffoldMessenger.of(context).showSnackBar(

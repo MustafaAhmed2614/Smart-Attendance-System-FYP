@@ -15,7 +15,8 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
         model_name=ACTIVE_AI_MODEL, 
         enforce_detection=False, 
         detector_backend=ACTIVE_DETECTOR, 
-        align=True
+        align=True,
+        normalization='ArcFace'
     )
 
     for i, res in enumerate(results):

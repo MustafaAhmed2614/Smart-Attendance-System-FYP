@@ -1,10 +1,4 @@
 # core/config.py
-
-# ==========================================
-# 🛠️ GLOBAL CONFIGURATIONS
-# ==========================================
-ACTIVE_AI_MODEL = "VGG-Face"
-ACTIVE_DETECTOR = "retinaface"
-
-# Recognition strictness (Lower = Stricter. Default for VGG-Face is usually around 0.40 - 0.55)
-MATCHING_THRESHOLD = 0.55
+ACTIVE_AI_MODEL = "ArcFace" 
+ACTIVE_DETECTOR = "mtcnn"       # 🚀 NAYA DETECTOR (Multi-face ke liye best)
+MATCHING_THRESHOLD = 0.55    # (Isey 0.68 hi rehne dein)

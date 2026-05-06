@@ -3,6 +3,17 @@ backend/myenv/
 backend/__pycache__/
 backend/attendance.db
 backend/temp_*.jpg
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+attendance.db
+temp_*.jpg
+
+venv/
+myenv/
+.env
 
 # Student Photos (Pure folder ko ignore karne ke liye)
 backend/students_pics/*
