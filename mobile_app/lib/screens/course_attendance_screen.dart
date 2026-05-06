@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
+import 'dart:typed_data';
 
 class CourseAttendanceScreen extends StatefulWidget {
   final String courseName;
@@ -405,14 +406,14 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Opening camera for attendance...")),
+        SnackBar(content: Text("Opening camera for class photo...")),
       );
       final image = await picker.pickImage(source: ImageSource.camera);
       if (image == null) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Analyzing face, please wait...")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Analyzing classroom image, please wait...")),
+      );
 
       var request = http.MultipartRequest(
         'POST',
@@ -429,19 +430,92 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       if (response.statusCode == 200 && data['status'] == 'Success') {
         List<dynamic> recognizedStudents = data['recognized_students'];
 
+        // 🚀 NAYA KAAM: Python se aayi hui Base64 text ko Image mein convert karna
+        Uint8List? annotatedImageBytes;
+        if (data['image'] != null) {
+          annotatedImageBytes = base64Decode(data['image']);
+        }
+
         if (recognizedStudents.isNotEmpty) {
-          String names = recognizedStudents.join(', ');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("✅ Attendance Marked for: $names"),
-              backgroundColor: Colors.green,
+          int count = recognizedStudents.length;
+          String namesList = recognizedStudents.join(
+            '\n• ',
+          ); // Bullet points banana
+
+          // 🚀 UPDATE: SnackBar hata kar Image wala khoobsurat Popup Dialog lagaya
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              title: Text(
+                "$count Students Marked!",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Agar backend se tasweer aayi hai toh yahan show hogi
+                    if (annotatedImageBytes != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(
+                          annotatedImageBytes,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    SizedBox(height: 15),
+                    Text(
+                      "Successfully marked present:\n\n• $namesList",
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                    ),
+                    child: Text("Done", style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("❌ Unrecognized Face!"),
-              backgroundColor: Colors.red,
+          // Unrecognized ka Error bhi Popup mein dikhayega
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              icon: Icon(Icons.error, color: Colors.red, size: 60),
+              title: Text("No Faces Recognized", textAlign: TextAlign.center),
+              content: Text(
+                "The AI could not recognize any registered students in this photo.",
+                textAlign: TextAlign.center,
+              ),
+              actions: [
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      "Try Again",
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }

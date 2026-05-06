@@ -6,12 +6,16 @@ import uuid
 import traceback 
 from fastapi import Response
 import csv                   
-import io                     
+import io      
+import cv2        # <--- Yeh import top par hona chahiye
+import base64     # <--- Yeh import top par hona chahiye
+import numpy as np # <--- Yeh import top par hona chahiye               
 # Clean Architecture imports
 from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
 from pydantic import BaseModel
 import sqlite3
+
 app = FastAPI()
 
 class UserSignup(BaseModel):
@@ -98,11 +102,14 @@ async def detect_attendance(file: UploadFile = File(...)):
     temp_file_path = unique_filename 
     
     try:
+        # Tasweer ko save karna
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 🚀 Calling the isolated AI Engine logic!
+        # 🚀 Calling the isolated AI Engine logic! (Aapka original function)
         final_names = recognize_faces(temp_file_path)
+
+        img_base64 = None # Default value
 
         if final_names:
             conn = get_db_connection()
@@ -112,12 +119,32 @@ async def detect_attendance(file: UploadFile = File(...)):
             conn.commit()
             conn.close()
 
+            # ==========================================
+            # 🚀 NAYA KAAM: Tasweer par Box aur Naam (Dummy Simulation)
+            # ==========================================
+            # Kyunke 'recognize_faces' abhi face locations return nahi kar raha,
+            # Toh hum tasweer ke left-top corner par sirf sab bachon ke naam
+            # green text mein likh kar bhejenge taake visual confirmation milay!
+            
+            image = cv2.imread(temp_file_path)
+            
+            # Tasweer ke upar sab recognized bachon ke naam likhna
+            y_position = 30
+            for name in final_names:
+                cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                y_position += 30 # Agle bache ka naam thora neeche aaye
+                
+            # Edit ki hui tasweer ko wapas Base64 mein convert karna
+            _, buffer = cv2.imencode('.jpg', image)
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
 
         return {
             "status": "Success",
             "recognized_students": final_names,
+            "image": img_base64, # 🚀 Nayi cheez jo hum Flutter ko bhej rahe hain
             "message": f"Attendance marked for: {', '.join(final_names)}" if final_names else "No matching student found."
         }
 
@@ -126,7 +153,6 @@ async def detect_attendance(file: UploadFile = File(...)):
             os.remove(temp_file_path)
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "recognized_students": [], "message": str(e)}
-
 # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
