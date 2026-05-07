@@ -96,8 +96,13 @@ async def register_student(
         traceback.print_exc() 
         return {"status": "Error", "message": str(e)}
 # 2. DETECT ATTENDANCE
+
+
 @app.post("/detect-attendance/")
-async def detect_attendance(file: UploadFile = File(...)):
+async def detect_attendance(
+    file: UploadFile = File(...), 
+    course_name: str = Form("AI") # 🚀 1. Flutter se course_name receive karna
+):
     unique_filename = f"temp_{uuid.uuid4()}.jpg"
     temp_file_path = unique_filename 
     
@@ -106,35 +111,30 @@ async def detect_attendance(file: UploadFile = File(...)):
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # 🚀 Calling the isolated AI Engine logic! (Aapka original function)
+        # AI Engine logic
         final_names = recognize_faces(temp_file_path)
 
-        img_base64 = None # Default value
+        img_base64 = None 
 
         if final_names:
             conn = get_db_connection()
             cursor = conn.cursor()
             for name in final_names:
-                cursor.execute("INSERT INTO attendance_logs (student_name, status) VALUES (?, ?)", (name, "Present"))
+                # 🚀 2. SQL Query mein course_name save karna
+                cursor.execute(
+                    "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
+                    (name, "Present", course_name)
+                )
             conn.commit()
             conn.close()
 
-            # ==========================================
-            # 🚀 NAYA KAAM: Tasweer par Box aur Naam (Dummy Simulation)
-            # ==========================================
-            # Kyunke 'recognize_faces' abhi face locations return nahi kar raha,
-            # Toh hum tasweer ke left-top corner par sirf sab bachon ke naam
-            # green text mein likh kar bhejenge taake visual confirmation milay!
-            
+            # --- Image processing (Drawing names) ---
             image = cv2.imread(temp_file_path)
-            
-            # Tasweer ke upar sab recognized bachon ke naam likhna
             y_position = 30
             for name in final_names:
                 cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-                y_position += 30 # Agle bache ka naam thora neeche aaye
+                y_position += 30 
                 
-            # Edit ki hui tasweer ko wapas Base64 mein convert karna
             _, buffer = cv2.imencode('.jpg', image)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
 
@@ -144,7 +144,7 @@ async def detect_attendance(file: UploadFile = File(...)):
         return {
             "status": "Success",
             "recognized_students": final_names,
-            "image": img_base64, # 🚀 Nayi cheez jo hum Flutter ko bhej rahe hain
+            "image": img_base64,
             "message": f"Attendance marked for: {', '.join(final_names)}" if final_names else "No matching student found."
         }
 
@@ -152,8 +152,7 @@ async def detect_attendance(file: UploadFile = File(...)):
         if os.path.exists(temp_file_path):
             os.remove(temp_file_path)
         print(f"‼️ API ERROR: {str(e)}")
-        return {"status": "Error", "recognized_students": [], "message": str(e)}
-# 3. VIEW LOGS
+        return {"status": "Error", "recognized_students": [], "message": str(e)}# 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
     conn = get_db_connection()
@@ -253,51 +252,52 @@ def login(user: UserLogin):
         return {"status": "Error", "message": str(e)}
 
 # 8. STUDENT ATTENDANCE API (Sirf apni attendance dekhne ke liye)
+# 8. STUDENT ATTENDANCE API (Updated for Debugging)
 @app.get("/my-attendance/{roll_number}")
 def get_my_attendance(roll_number: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Step 1: Sab se pehle Student ka naam dhoondein 'students' table se
+        # Step 1: Roll number se student ka naam nikalna
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
         if not student:
             conn.close()
-            return {"status": "Error", "message": "Student not found in database!"}
+            print(f"❌ Student with roll {roll_number} not found!")
+            return {"status": "Error", "message": "Student not found!"}
             
-        # Agar db_connection mein row_factory lagi hai toh dictionary ki tarah use karein
-        # Agar nahi lagi toh index [0] use karein. Hum dono handle kar lete hain:
-        student_name = student["name"] if isinstance(student, sqlite3.Row) else student[0]
-        
-        # Step 2: Ab is naam se uski attendance history nikalein
+        student_name = student[0]
+        print(f"🔍 Searching attendance for Name: {student_name}")
+
+        # Step 2: Attendance logs mein naam search karna
+        # (Humne yahan '%' use kiya hai taake agar naam thora agay piche bhi ho toh mil jaye)
         cursor.execute('''
             SELECT status, timestamp 
             FROM attendance_logs 
-            WHERE student_name = ? 
+            WHERE student_name LIKE ? 
             ORDER BY timestamp DESC
-        ''', (student_name,))
+        ''', (f"%{student_name}%",))
         
         records = cursor.fetchall()
         conn.close()
         
-        # Flutter ko bhejne ke liye list banayen
+        print(f"✅ Found {len(records)} records for {student_name}")
+
         formatted_logs = []
         for row in records:
-            status = row["status"] if isinstance(row, sqlite3.Row) else row[0]
-            timestamp = row["timestamp"] if isinstance(row, sqlite3.Row) else row[1]
-            formatted_logs.append([status, timestamp])
+            formatted_logs.append([row[0], row[1]])
             
         return {
             "status": "Success", 
-            "student_name": student_name,  # <--- Yeh naam Flutter app ko jayega!
+            "student_name": student_name,
             "logs": formatted_logs
         }
         
     except Exception as e:
-        return {"status": "Error", "message": str(e)}
-    
+        print(f"‼️ API ERROR: {str(e)}")
+        return {"status": "Error", "message": str(e)}    
 
 # ==========================================
 # 🚀 NAYI APIs COURSES KE LIYE

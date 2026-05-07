@@ -423,6 +423,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         'POST',
         Uri.parse('$backendUrl/detect-attendance/'),
       );
+      request.fields['course_name'] = widget.courseName;
       request.files.add(await http.MultipartFile.fromPath('file', image.path));
 
       var response = await request.send();
@@ -567,9 +568,12 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   Icon(Icons.people_alt, size: 80, color: Colors.grey[400]),
                   SizedBox(height: 20),
                   Text(
-                    "Mark today's attendance for\n${widget.courseName}",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 18, color: Colors.grey[700]),
+                    "Marking attendance for: ${widget.courseName}",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueAccent,
+                    ),
                   ),
                   SizedBox(height: 30),
                   ElevatedButton.icon(
