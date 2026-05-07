@@ -1,0 +1,12 @@
+# Tasweeron wala folder (Database)
+save_pictures/
+attendance_photos/
+
+# Virtual Environment 
+myenv/
+
+# AI Models aur Cache files
+*.pkl
+representations_arcface.pkl
+__pycache__/
+*.pyc
