@@ -483,17 +483,44 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   ],
                 ),
               ),
+
+              // 👇 YAHAN NAYE BUTTONS LAGAYE HAIN 👇
               actions: [
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Button 1: Dobara scan karne ke liye
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context); // Pehle popup band karega
+                        markAttendance(); // Phir dobara camera khol dega
+                      },
+                      icon: Icon(Icons.camera_alt, color: Colors.blueAccent),
+                      label: Text(
+                        "Scan More",
+                        style: TextStyle(
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                    child: Text("Done", style: TextStyle(color: Colors.white)),
-                  ),
+
+                    // Button 2: Finish karne ke liye
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
+                      child: Text(
+                        "Finish",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
               ],
+
+              // 👆 YAHAN NAYE BUTTONS KHATAM HUE 👆
             ),
           );
         } else {

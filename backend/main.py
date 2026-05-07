@@ -9,7 +9,8 @@ import csv
 import io      
 import cv2        # <--- Yeh import top par hona chahiye
 import base64     # <--- Yeh import top par hona chahiye
-import numpy as np # <--- Yeh import top par hona chahiye               
+import numpy as np
+from datetime import datetime              
 # Clean Architecture imports
 from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
@@ -37,6 +38,7 @@ class CourseCreate(BaseModel):
 init_db()
 if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
+
 
 @app.get("/")
 def read_root():
@@ -97,49 +99,71 @@ async def register_student(
         return {"status": "Error", "message": str(e)}
 # 2. DETECT ATTENDANCE
 
+ATTENDANCE_IMG_DIR = "attendance_photos"
+os.makedirs(ATTENDANCE_IMG_DIR, exist_ok=True)
 
 @app.post("/detect-attendance/")
 async def detect_attendance(
     file: UploadFile = File(...), 
-    course_name: str = Form("AI") # 🚀 1. Flutter se course_name receive karna
+    course_name: str = Form("AI") 
 ):
-    unique_filename = f"temp_{uuid.uuid4()}.jpg"
-    temp_file_path = unique_filename 
+    # 🚀 2. Tasweer ko Date aur Time ke hisaab se naam dena
+    current_time = datetime.now()
+    timestamp = current_time.strftime("%Y-%m-%d_%H-%M-%S")
+    today_date = current_time.strftime("%Y-%m-%d")
+    
+    # Naya File Path: e.g., "attendance_photos/AI_2026-05-07_19-30-00.jpg"
+    filename = f"{course_name}_{timestamp}.jpg"
+    file_path = os.path.join(ATTENDANCE_IMG_DIR, filename) 
     
     try:
-        # Tasweer ko save karna
-        with open(temp_file_path, "wb") as buffer:
+        # Tasweer ko hamesha ke liye save karna
+        with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         # AI Engine logic
-        final_names = recognize_faces(temp_file_path)
+        final_names = recognize_faces(file_path)
 
         img_base64 = None 
 
         if final_names:
             conn = get_db_connection()
             cursor = conn.cursor()
+            
             for name in final_names:
-                # 🚀 2. SQL Query mein course_name save karna
-                cursor.execute(
-                    "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
-                    (name, "Present", course_name)
-                )
+                # 🚀 3. DUPLICATE CHECK: Kya aaj is bache ki is course mein attendance lag chuki hai?
+                cursor.execute('''
+                    SELECT id FROM attendance_logs 
+                    WHERE student_name = ? AND course_name = ? AND timestamp LIKE ?
+                ''', (name, course_name, f"{today_date}%"))
+                
+                exists = cursor.fetchone()
+                
+                if not exists:
+                    # Agar pehle nahi lagi, sirf tabhi database mein Insert karo
+                    cursor.execute(
+                        "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
+                        (name, "Present", course_name)
+                    )
             conn.commit()
             conn.close()
 
             # --- Image processing (Drawing names) ---
-            image = cv2.imread(temp_file_path)
+            image = cv2.imread(file_path)
             y_position = 30
             for name in final_names:
                 cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
                 y_position += 30 
                 
+            # Edit ki hui tasweer ko wapas Base64 mein convert karna
             _, buffer = cv2.imencode('.jpg', image)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
+            
+            # 🚀 Optional: Agar aap chahte hain ke jo tasweer folder mein save ho us par 
+            # bachon ke naam (Green text) likhe hon, toh is line ko uncomment kar dein:
+            # cv2.imwrite(file_path, image)
 
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+        # 🚀 4. YAHAN SE 'os.remove()' HATA DIYA HAI TAAKE PHOTO DELETE NA HO!
 
         return {
             "status": "Success",
@@ -149,10 +173,14 @@ async def detect_attendance(
         }
 
     except Exception as e:
-        if os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
+        # Agar error aaye (jaise file corrupt ho), toh ghalat file ko delete kar do
+        if os.path.exists(file_path):
+            os.remove(file_path)
         print(f"‼️ API ERROR: {str(e)}")
-        return {"status": "Error", "recognized_students": [], "message": str(e)}# 3. VIEW LOGS
+        return {"status": "Error", "recognized_students": [], "message": str(e)}    
+    
+    
+    # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
     conn = get_db_connection()

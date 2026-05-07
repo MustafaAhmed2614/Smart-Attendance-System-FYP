@@ -9,34 +9,42 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
     print("\n" + "="*50)
     print(f"🔍 SCANNING WITH {ACTIVE_AI_MODEL}...")
     
-    results = DeepFace.find(
-        img_path=image_path,
-        db_path=db_path,
-        model_name=ACTIVE_AI_MODEL, 
-        enforce_detection=False, 
-        detector_backend=ACTIVE_DETECTOR, 
-        align=True,
-        normalization='ArcFace'
-    )
+    try:
+        # 🚀 CHANGE 1: enforce_detection ko True kar diya
+        results = DeepFace.find(
+            img_path=image_path,
+            db_path=db_path,
+            model_name=ACTIVE_AI_MODEL, 
+            enforce_detection=True,    # 👈 Yeh Table/Deewar ko reject karega
+            detector_backend=ACTIVE_DETECTOR, 
+            align=True,
+            normalization='ArcFace'
+        )
 
-    for i, res in enumerate(results):
-        if not res.empty:
-            best_match_row = res.iloc[0]
-            best_match_path = best_match_row['identity']
-            distance = best_match_row['distance']
-            
-            raw_name = os.path.basename(best_match_path).split('.')[0] 
-            clean_name = raw_name.split('_')[0] 
+        for i, res in enumerate(results):
+            if not res.empty:
+                best_match_row = res.iloc[0]
+                best_match_path = best_match_row['identity']
+                distance = best_match_row['distance']
+                
+                raw_name = os.path.basename(best_match_path).split('.')[0] 
+                clean_name = raw_name.split('_')[0] 
 
-            print(f"👤 Face {i+1}: Matched with '{clean_name}' (File: {raw_name}) | Distance: {distance:.4f}")
+                print(f"👤 Face {i+1}: Matched with '{clean_name}' (File: {raw_name}) | Distance: {distance:.4f}")
 
-            if distance < MATCHING_THRESHOLD: 
-                detected_names.add(clean_name)
-                print(f"   ✅ SUCCESS: Added {clean_name}")
+                if distance < MATCHING_THRESHOLD: 
+                    detected_names.add(clean_name)
+                    print(f"   ✅ SUCCESS: Added {clean_name}")
+                else:
+                    print(f"   ❌ IGNORED: Distance too high ({distance:.4f})")
             else:
-                print(f"   ❌ IGNORED: Distance too high ({distance:.4f})")
-        else:
-            print(f"❓ Face {i+1}: No match found in database.")
+                print(f"❓ Face {i+1}: No match found in database.")
+
+    except ValueError:
+        # 🚀 CHANGE 2: Agar Table ki photo li, toh code crash nahi hoga, yahan aayega
+        print("‼️ ALERT: No human face detected! (Ignored background/table)")
+    except Exception as e:
+        print(f"‼️ ERROR in Face Recognition: {str(e)}")
 
     print("="*50 + "\n")
     return list(detected_names)
