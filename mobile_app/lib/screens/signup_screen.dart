@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../constants.dart';// Hamari behtareen constants file!
+import '../constants.dart';
 
 class SignupScreen extends StatefulWidget {
   @override
@@ -9,23 +9,35 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  // 1. Form ko validate karne ke liye key
+  final _formKey = GlobalKey<FormState>();
+
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  
-  // Dropdown ke liye default value
-  String selectedRole = 'student'; 
+
+  String selectedRole = 'student';
   bool isLoading = false;
 
+  // 2. Password chupane ya dikhane ke liye
+  bool _isObscure = true;
+
+  // 3. Strong Password check karne ka formula (Regex)
+  bool _isPasswordStrong(String password) {
+    final RegExp passwordRegex = RegExp(
+      r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#\$&*~]).{8,}$',
+    );
+    return passwordRegex.hasMatch(password);
+  }
+
   Future<void> signupUser() async {
-    // Agar fields khali hain toh error dikhayen
-    if (usernameController.text.isEmpty || passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please fill all fields!"), backgroundColor: Colors.red),
-      );
-      return;
+    // 4. Sab se pehle check karein ke kya form ke saare rules follow hue hain?
+    if (!_formKey.currentState!.validate()) {
+      return; // Agar error hai toh API call mat karo
     }
 
-    setState(() { isLoading = true; });
+    setState(() {
+      isLoading = true;
+    });
 
     try {
       final response = await http.post(
@@ -41,13 +53,14 @@ class _SignupScreenState extends State<SignupScreen> {
       final data = jsonDecode(response.body);
 
       if (data['status'] == 'Success') {
-        // Account ban gaya! Success message dikhayen aur wapas Login par bhej dein
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message']), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(data['message']),
+            backgroundColor: Colors.green,
+          ),
         );
-        Navigator.pop(context); // Yeh line wapas pichli screen (Login) par le jayegi
+        Navigator.pop(context); // Wapas Login par le jayega
       } else {
-        // Error (jaise Duplicate Username)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(data['message']), backgroundColor: Colors.red),
         );
@@ -55,80 +68,179 @@ class _SignupScreenState extends State<SignupScreen> {
     } catch (e) {
       print("Signup Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connection error! Check your network.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Connection error! Check your network.'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
-      setState(() { isLoading = false; });
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Create Account')),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.person_add_alt_1, size: 80, color: Colors.blueAccent),
-            SizedBox(height: 20),
-            
-            TextField(
-              controller: usernameController,
-              decoration: InputDecoration(
-                labelText: 'Username (or Roll Number)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 15),
-            
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 15),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text(
+          'Create Account',
+          style: TextStyle(
+            color: Colors.blueAccent,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.blueAccent),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Form(
+            // FORM WIDGET ADD KIYA HAI
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.person_add_alt_1,
+                  size: 80,
+                  color: Colors.blueAccent,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "Join Smart Attendance",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+                const SizedBox(height: 30),
 
-            // Dropdown Menu Role Select karne ke liye
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedRole,
-                  isExpanded: true,
-                  items: [
-                    DropdownMenuItem(value: 'student', child: Text("Student")),
-                    DropdownMenuItem(value: 'teacher', child: Text("Teacher")),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      selectedRole = value!;
-                    });
+                // USERNAME FIELD
+                TextFormField(
+                  controller: usernameController,
+                  decoration: InputDecoration(
+                    labelText: 'Username / Roll Number',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter Username or Roll Number';
+                    }
+                    return null;
                   },
                 ),
-              ),
-            ),
-            SizedBox(height: 20),
+                const SizedBox(height: 15),
 
-            isLoading
-                ? CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: signupUser,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
-                      backgroundColor: Colors.green,
+                // PASSWORD FIELD (WITH STRONG VALIDATION & EYE ICON)
+                TextFormField(
+                  controller: passwordController,
+                  obscureText: _isObscure,
+                  autovalidateMode: AutovalidateMode
+                      .onUserInteraction, // Type karte waqt error dikhaye
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isObscure ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isObscure = !_isObscure;
+                        });
+                      },
                     ),
-                    child: Text('Sign Up', style: TextStyle(fontSize: 18, color: Colors.white)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-          ],
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a password';
+                    }
+                    if (value.length < 8) {
+                      return 'Must be at least 8 characters';
+                    }
+                    if (!_isPasswordStrong(value)) {
+                      return 'Needs 1 Uppercase, 1 Number & 1 Symbol (e.g. @#\$)';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 15),
+
+                // ROLE SELECTION DROPDOWN
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: selectedRole,
+                      isExpanded: true,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Colors.blueAccent,
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'student',
+                          child: Text("👨‍🎓 I am a Student"),
+                        ),
+                        DropdownMenuItem(
+                          value: 'teacher',
+                          child: Text("👨‍🏫 I am a Teacher"),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedRole = value!;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                // SUBMIT BUTTON
+                isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        onPressed: signupUser,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          backgroundColor: Colors.blueAccent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text(
+                          'Create Account',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+              ],
+            ),
+          ),
         ),
       ),
     );

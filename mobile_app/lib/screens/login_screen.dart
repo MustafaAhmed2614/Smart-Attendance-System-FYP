@@ -17,13 +17,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool isLoading = false;
 
-  // 🚀 By default "student" select hoga
+  // 🚀 NAYA VARIABLE: Password chupane ya dikhane ke liye
+  bool _isObscure = true;
+
   String selectedRole = 'student';
 
   Future<void> loginUser() async {
     if (usernameController.text.isEmpty || passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text("Please enter Username and Password!"),
           backgroundColor: Colors.red,
         ),
@@ -39,7 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
       final response = await http.post(
         Uri.parse('${AppConfig.backendUrl}/login/'),
         headers: {"Content-Type": "application/json"},
-        // Hum backend ko role bhi bhej rahe hain
         body: jsonEncode({
           "username": usernameController.text,
           "password": passwordController.text,
@@ -51,13 +52,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (data['status'] == 'Success') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text("Login Successful!"),
             backgroundColor: Colors.green,
           ),
         );
 
-        // 🚀 Role ke hisaab se Dashboard open karein
         if (selectedRole == 'teacher') {
           Navigator.pushReplacement(
             context,
@@ -70,8 +70,10 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) =>
-                  StudentDashboard(rollNumber: usernameController.text),
+              builder: (context) => StudentDashboard(
+                studentName: data['name'] ?? "Student",
+                rollNumber: usernameController.text,
+              ),
             ),
           );
         }
@@ -83,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       print("Login Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text("Connection Error!"),
           backgroundColor: Colors.red,
         ),
@@ -101,18 +103,18 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo ya Icon
-              Icon(
+              // App Logo
+              const Icon(
                 Icons.face_retouching_natural,
                 size: 100,
                 color: Colors.blueAccent,
               ),
-              SizedBox(height: 20),
-              Text(
+              const SizedBox(height: 20),
+              const Text(
                 "Smart Attendance",
                 style: TextStyle(
                   fontSize: 24,
@@ -120,9 +122,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Colors.blueAccent,
                 ),
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
 
-              // 🚀 STUDENT AUR TEACHER KA TOGGLE BUTTON
+              // Toggle Button
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -130,13 +132,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: GestureDetector(
                       onTap: () => setState(() => selectedRole = 'student'),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: 15),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
-                          // Agar student select hai toh blue, warna grey
                           color: selectedRole == 'student'
                               ? Colors.blueAccent
                               : Colors.grey[200],
-                          borderRadius: BorderRadius.only(
+                          borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(10),
                             bottomLeft: Radius.circular(10),
                           ),
@@ -160,13 +161,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: GestureDetector(
                       onTap: () => setState(() => selectedRole = 'teacher'),
                       child: Container(
-                        padding: EdgeInsets.symmetric(vertical: 15),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
                         decoration: BoxDecoration(
-                          // Agar teacher select hai toh blue, warna grey
                           color: selectedRole == 'teacher'
                               ? Colors.blueAccent
                               : Colors.grey[200],
-                          borderRadius: BorderRadius.only(
+                          borderRadius: const BorderRadius.only(
                             topRight: Radius.circular(10),
                             bottomRight: Radius.circular(10),
                           ),
@@ -188,52 +188,69 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
 
-              // Username aur Password fields
+              // Username Field
               TextField(
                 controller: usernameController,
                 decoration: InputDecoration(
                   labelText: 'Username / Roll Number',
-                  prefixIcon: Icon(Icons.person),
+                  prefixIcon: const Icon(Icons.person),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
-              SizedBox(height: 15),
+              const SizedBox(height: 15),
+
+              // 🚀 UPDATED: Password Field with Show/Hide Toggle
               TextField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: _isObscure, // True = Hidden, False = Visible
                 decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock),
+                  prefixIcon: const Icon(Icons.lock),
+
+                  // Aankh wala icon
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isObscure ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      // Button dabane par state change hogi
+                      setState(() {
+                        _isObscure = !_isObscure;
+                      });
+                    },
+                  ),
+
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
-              SizedBox(height: 25),
+              const SizedBox(height: 25),
 
               // Login Button
               isLoading
-                  ? CircularProgressIndicator()
+                  ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: loginUser,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 50),
                         backgroundColor: Colors.blueAccent,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: Text(
+                      child: const Text(
                         'Login',
                         style: TextStyle(fontSize: 18, color: Colors.white),
                       ),
                     ),
 
-              SizedBox(height: 15),
+              const SizedBox(height: 15),
 
               // Signup Navigation
               TextButton(
@@ -243,7 +260,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     MaterialPageRoute(builder: (context) => SignupScreen()),
                   );
                 },
-                child: Text(
+                child: const Text(
                   "Don't have an account? Sign Up",
                   style: TextStyle(color: Colors.blueAccent),
                 ),

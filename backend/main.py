@@ -16,7 +16,7 @@ from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
 from pydantic import BaseModel
 import sqlite3
-
+from passlib.context import CryptContext
 app = FastAPI()
 
 class UserSignup(BaseModel):
@@ -40,6 +40,17 @@ if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
 
 
+
+# Bcrypt ka setup
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 1. Naya password hash karne ka function (Signup ke liye)
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+# 2. Password check karne ka function (Login ke liye)
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
 @app.get("/")
 def read_root():
     return {"message": "FYP Smart Attendance API is Live! (Clean Architecture)"}
@@ -241,44 +252,59 @@ def clear_attendance():
 
 # 6. SIGNUP API (Naya Account Banane ke liye)
 @app.post("/signup/")
-def signup(user: UserSignup):
+async def signup(user: dict): # (Aapne pydantic model use kiya ho toh woh lagayen)
+    username = user.get("username")
+    raw_password = user.get("password")
+    role = user.get("role")
+    
+    # 🚀 Yahan hum plain password ko hash mein convert kar rahe hain
+    hashed_password = get_password_hash(raw_password)
+    
+    # Ab is hashed_password ko database mein INSERT karein (plain ko nahi!)
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        # Naya user database mein daalein
         cursor.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            (user.username, user.password, user.role.lower())
+            (username, hashed_password, role) # Yahan hashed bhej rahe hain
         )
         conn.commit()
-        conn.close()
-        return {"status": "Success", "message": f"{user.role} account created for {user.username}"}
-    except sqlite3.IntegrityError:
-        return {"status": "Error", "message": "Username/Roll Number already exists!"}
+        return {"status": "Success", "message": "Account created securely!"}
     except Exception as e:
-        return {"status": "Error", "message": str(e)}
-
+        return {"status": "Error", "message": "Username already exists!"}
+    finally:
+        conn.close()
 # 7. LOGIN API (Account Check karne ke liye)
 @app.post("/login/")
-def login(user: UserLogin):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        # Database mein check karein ke is username aur password ka koi record hai?
-        cursor.execute(
-            "SELECT role FROM users WHERE username = ? AND password = ?",
-            (user.username, user.password)
-        )
-        record = cursor.fetchone()
-        conn.close()
+async def login(user: dict):
+    username = user.get("username")
+    raw_password = user.get("password")
+    role = user.get("role")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # Pura user data mangwayen
+    cursor.execute("SELECT password, role FROM users WHERE username = ?", (username,))
+    db_user = cursor.fetchone()
+    conn.close()
 
-        if record:
-            return {"status": "Success", "role": record[0], "message": "Login Successful!"}
-        else:
-            return {"status": "Error", "message": "Invalid Username or Password"}
-    except Exception as e:
-        return {"status": "Error", "message": str(e)}
+    # Agar user nahi mila
+    if not db_user:
+        return {"status": "Error", "message": "User not found!"}
 
+    db_hashed_password = db_user["password"]
+    db_role = db_user["role"]
+
+    # 🚀 Yahan checking ho rahi hai! (True ya False aayega)
+    is_password_correct = verify_password(raw_password, db_hashed_password)
+
+    if not is_password_correct:
+        return {"status": "Error", "message": "Incorrect password!"}
+        
+    if role != db_role:
+        return {"status": "Error", "message": "Incorrect role selected!"}
+
+    return {"status": "Success", "message": "Login successful!"}
 # 8. STUDENT ATTENDANCE API (Sirf apni attendance dekhne ke liye)
 # 8. STUDENT ATTENDANCE API (Updated for Debugging)
 @app.get("/my-attendance/{roll_number}")

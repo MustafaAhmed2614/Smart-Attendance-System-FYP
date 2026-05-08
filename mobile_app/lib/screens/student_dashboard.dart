@@ -6,8 +6,11 @@ import '../constants.dart';
 import 'login_screen.dart'; // Shuru mein 2 dots (..) aur ek slash
 
 class StudentDashboard extends StatefulWidget {
-  final String rollNumber; // Login ke waqt jo username/roll number dala tha
-  StudentDashboard({required this.rollNumber});
+  final String studentName; // Yeh line laazmi honi chahiye
+  final String rollNumber;
+
+  // Constructor mein dono required hone chahiye
+  StudentDashboard({required this.studentName, required this.rollNumber});
 
   @override
   _StudentDashboardState createState() => _StudentDashboardState();
