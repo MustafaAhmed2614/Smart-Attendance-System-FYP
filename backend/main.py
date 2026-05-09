@@ -64,7 +64,10 @@ async def register_student(
     roll_number: str = Form(...),
     front_image: UploadFile = File(...),
     left_image: UploadFile = File(...),
-    right_image: UploadFile = File(...)
+    right_image: UploadFile = File(...),
+    up_image: UploadFile = File(...),
+    smile_image: UploadFile = File(...)
+
 ):
     try:
         print(f"\n--- 📥 NEW FACE REGISTRATION: {name} ({roll_number}) ---")
@@ -76,7 +79,10 @@ async def register_student(
         files_to_save = {
             f"{name}_{roll_number}_front.jpg": front_image,
             f"{name}_{roll_number}_left.jpg": left_image,
-            f"{name}_{roll_number}_right.jpg": right_image
+            f"{name}_{roll_number}_right.jpg": right_image,
+            f"{name}_{roll_number}_up.jpg": up_image,
+            f"{name}_{roll_number}_smile.jpg": smile_image
+            
         }
 
         for file_name, file_obj in files_to_save.items():

@@ -60,7 +60,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Adding student to pending list...")),
+        const SnackBar(content: Text("Adding student to pending list...")),
       );
 
       final response = await http.post(
@@ -79,12 +79,12 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text("✅ Student Added!"),
             backgroundColor: Colors.green,
           ),
         );
-        fetchPendingStudents(); // List refresh karo
+        fetchPendingStudents();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -94,7 +94,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
       }
     } catch (e) {
-      print("Error adding student: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -106,7 +105,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // Naya bacha add karne ka Popup Dialog
   void showAddStudentDialog() {
     TextEditingController nameController = TextEditingController();
     TextEditingController rollNoController = TextEditingController();
@@ -118,21 +116,21 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          title: Text("Add New Student"),
+          title: const Text("Add New Student"),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: "Student Name",
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextField(
                 controller: rollNoController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: "Roll Number",
                   prefixIcon: Icon(Icons.badge),
                 ),
@@ -142,7 +140,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text("Cancel", style: TextStyle(color: Colors.red)),
+              child: const Text("Cancel", style: TextStyle(color: Colors.red)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -158,7 +156,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
               ),
-              child: Text("Add to List", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "Add to List",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -167,7 +168,30 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 📸 UI: Face Register karne ka Popup (WITH IMAGE PREVIEWS)
+  // 🎨 WIDGET HELPER: Face Tile Banane Ke Liye
+  // ==========================================
+  Widget _buildFaceTile(String title, File? image, VoidCallback onTap) {
+    return ListTile(
+      tileColor: Colors.grey[100],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      leading: image != null
+          ? CircleAvatar(backgroundImage: FileImage(image))
+          : CircleAvatar(
+              backgroundColor: Colors.blue[50],
+              child: const Icon(Icons.face, color: Colors.blue),
+            ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      trailing: Icon(
+        image != null ? Icons.check_circle : Icons.camera_alt,
+        color: image != null ? Colors.green : Colors.grey,
+        size: 28,
+      ),
+      onTap: onTap,
+    );
+  }
+
+  // ==========================================
+  // 📸 UI: Face Register karne ka Popup (5 Images)
   // ==========================================
   void showRegistrationDialog(
     BuildContext context,
@@ -177,6 +201,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     File? frontImage;
     File? leftImage;
     File? rightImage;
+    File? upImage;
+    File? smileImage;
     final picker = ImagePicker();
 
     showDialog(
@@ -190,122 +216,83 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 borderRadius: BorderRadius.circular(15),
               ),
               title: Text(
-                "Register Face: $studentName",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                "Register: $studentName",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      "Please capture all 3 angles to register.",
-                      style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                    const Text(
+                      "Capture all 5 variations for best AI accuracy.",
+                      style: TextStyle(color: Colors.grey, fontSize: 13),
                     ),
-                    SizedBox(height: 15),
+                    const SizedBox(height: 15),
 
-                    // FRONT FACE
-                    ListTile(
-                      tileColor: Colors.grey[100],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      // 🚀 NAYA KAAM: Agar picture le li hai toh picture show karo, warna icon
-                      leading: frontImage != null
-                          ? CircleAvatar(
-                              backgroundImage: FileImage(frontImage!),
-                            )
-                          : CircleAvatar(
-                              backgroundColor: Colors.blue[50],
-                              child: Icon(Icons.face, color: Colors.blue),
-                            ),
-                      title: Text("Front Face"),
-                      trailing: Icon(
-                        frontImage != null
-                            ? Icons.check_circle
-                            : Icons.camera_alt,
-                        color: frontImage != null ? Colors.green : Colors.grey,
-                      ),
-                      onTap: () async {
-                        final pic = await picker.pickImage(
-                          source: ImageSource.camera,
-                        );
-                        if (pic != null)
-                          setDialogState(() => frontImage = File(pic.path));
-                      },
-                    ),
-                    SizedBox(height: 10),
+                    _buildFaceTile("1. Front Face", frontImage, () async {
+                      final pic = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (pic != null)
+                        setDialogState(() => frontImage = File(pic.path));
+                    }),
+                    const SizedBox(height: 10),
 
-                    // LEFT FACE
-                    ListTile(
-                      tileColor: Colors.grey[100],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      leading: leftImage != null
-                          ? CircleAvatar(backgroundImage: FileImage(leftImage!))
-                          : CircleAvatar(
-                              backgroundColor: Colors.blue[50],
-                              child: Icon(Icons.turn_left, color: Colors.blue),
-                            ),
-                      title: Text("Left Face"),
-                      trailing: Icon(
-                        leftImage != null
-                            ? Icons.check_circle
-                            : Icons.camera_alt,
-                        color: leftImage != null ? Colors.green : Colors.grey,
-                      ),
-                      onTap: () async {
-                        final pic = await picker.pickImage(
-                          source: ImageSource.camera,
-                        );
-                        if (pic != null)
-                          setDialogState(() => leftImage = File(pic.path));
-                      },
-                    ),
-                    SizedBox(height: 10),
+                    _buildFaceTile("2. Left Profile", leftImage, () async {
+                      final pic = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (pic != null)
+                        setDialogState(() => leftImage = File(pic.path));
+                    }),
+                    const SizedBox(height: 10),
 
-                    // RIGHT FACE
-                    ListTile(
-                      tileColor: Colors.grey[100],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      leading: rightImage != null
-                          ? CircleAvatar(
-                              backgroundImage: FileImage(rightImage!),
-                            )
-                          : CircleAvatar(
-                              backgroundColor: Colors.blue[50],
-                              child: Icon(Icons.turn_right, color: Colors.blue),
-                            ),
-                      title: Text("Right Face"),
-                      trailing: Icon(
-                        rightImage != null
-                            ? Icons.check_circle
-                            : Icons.camera_alt,
-                        color: rightImage != null ? Colors.green : Colors.grey,
-                      ),
-                      onTap: () async {
-                        final pic = await picker.pickImage(
-                          source: ImageSource.camera,
-                        );
-                        if (pic != null)
-                          setDialogState(() => rightImage = File(pic.path));
-                      },
-                    ),
+                    _buildFaceTile("3. Right Profile", rightImage, () async {
+                      final pic = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (pic != null)
+                        setDialogState(() => rightImage = File(pic.path));
+                    }),
+                    const SizedBox(height: 10),
+
+                    _buildFaceTile("4. Look Slightly Up", upImage, () async {
+                      final pic = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (pic != null)
+                        setDialogState(() => upImage = File(pic.path));
+                    }),
+                    const SizedBox(height: 10),
+
+                    _buildFaceTile("5. Random / Smile", smileImage, () async {
+                      final pic = await picker.pickImage(
+                        source: ImageSource.camera,
+                      );
+                      if (pic != null)
+                        setDialogState(() => smileImage = File(pic.path));
+                    }),
                   ],
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text("Cancel", style: TextStyle(color: Colors.red)),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed:
                       (frontImage != null &&
                           leftImage != null &&
-                          rightImage != null)
+                          rightImage != null &&
+                          upImage != null &&
+                          smileImage != null)
                       ? () {
                           Navigator.pop(context);
                           uploadFacesToAPI(
@@ -314,13 +301,15 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                             frontImage!,
                             leftImage!,
                             rightImage!,
+                            upImage!,
+                            smileImage!,
                           );
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
-                  child: Text(
+                  child: const Text(
                     "Upload & Save",
                     style: TextStyle(color: Colors.white),
                   ),
@@ -334,7 +323,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // API: 3 Tasweerein Backend par bhejna
+  // API: 5 Tasweerein Backend par bhejna
   // ==========================================
   Future<void> uploadFacesToAPI(
     String studentName,
@@ -342,10 +331,12 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     File front,
     File left,
     File right,
+    File up,
+    File smile,
   ) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Uploading faces for $studentName...")),
+        SnackBar(content: Text("Uploading 5 faces for $studentName...")),
       );
 
       var request = http.MultipartRequest(
@@ -364,37 +355,38 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       request.files.add(
         await http.MultipartFile.fromPath('right_image', right.path),
       );
+      request.files.add(await http.MultipartFile.fromPath('up_image', up.path));
+      request.files.add(
+        await http.MultipartFile.fromPath('smile_image', smile.path),
+      );
 
       var response = await request.send();
-
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("✅ Face Registered Successfully!"),
+          const SnackBar(
+            content: Text("✅ All 5 Faces Registered!"),
             backgroundColor: Colors.green,
           ),
         );
         fetchPendingStudents();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text("❌ Failed to save in Database."),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      print("Upload Error: $e");
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Upload Error: $e"),
             backgroundColor: Colors.red,
           ),
         );
-      }
     }
   }
 
@@ -406,17 +398,19 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
     try {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Opening camera for class photo...")),
+        const SnackBar(content: Text("Opening camera for class photo...")),
       );
       final image = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 100, // 🚀 NAYI CHEEZ: 100% HD Quality
-        maxWidth: 1920, // 🚀 NAYI CHEEZ: Tasweer phatay nahi
+        imageQuality: 100,
+        maxWidth: 1920,
       );
       if (image == null) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Analyzing classroom image, please wait...")),
+        const SnackBar(
+          content: Text("Analyzing classroom image, please wait..."),
+        ),
       );
 
       var request = http.MultipartRequest(
@@ -434,8 +428,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
         List<dynamic> recognizedStudents = data['recognized_students'];
-
-        // 🚀 NAYA KAAM: Python se aayi hui Base64 text ko Image mein convert karna
         Uint8List? annotatedImageBytes;
         if (data['image'] != null) {
           annotatedImageBytes = base64Decode(data['image']);
@@ -443,11 +435,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
         if (recognizedStudents.isNotEmpty) {
           int count = recognizedStudents.length;
-          String namesList = recognizedStudents.join(
-            '\n• ',
-          ); // Bullet points banana
+          String namesList = recognizedStudents.join('\n• ');
 
-          // 🚀 UPDATE: SnackBar hata kar Image wala khoobsurat Popup Dialog lagaya
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -457,7 +446,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               title: Text(
                 "$count Students Marked!",
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.green,
                   fontWeight: FontWeight.bold,
                 ),
@@ -466,7 +455,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Agar backend se tasweer aayi hai toh yahan show hogi
                     if (annotatedImageBytes != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
@@ -475,28 +463,28 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                           fit: BoxFit.cover,
                         ),
                       ),
-                    SizedBox(height: 15),
+                    const SizedBox(height: 15),
                     Text(
                       "Successfully marked present:\n\n• $namesList",
-                      style: TextStyle(fontSize: 16),
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ],
                 ),
               ),
-
-              // 👇 YAHAN NAYE BUTTONS LAGAYE HAIN 👇
               actions: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    // Button 1: Dobara scan karne ke liye
                     TextButton.icon(
                       onPressed: () {
-                        Navigator.pop(context); // Pehle popup band karega
-                        markAttendance(); // Phir dobara camera khol dega
+                        Navigator.pop(context);
+                        markAttendance();
                       },
-                      icon: Icon(Icons.camera_alt, color: Colors.blueAccent),
-                      label: Text(
+                      icon: const Icon(
+                        Icons.camera_alt,
+                        color: Colors.blueAccent,
+                      ),
+                      label: const Text(
                         "Scan More",
                         style: TextStyle(
                           color: Colors.blueAccent,
@@ -504,14 +492,12 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         ),
                       ),
                     ),
-
-                    // Button 2: Finish karne ke liye
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                       ),
-                      child: Text(
+                      child: const Text(
                         "Finish",
                         style: TextStyle(color: Colors.white),
                       ),
@@ -519,21 +505,21 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   ],
                 ),
               ],
-
-              // 👆 YAHAN NAYE BUTTONS KHATAM HUE 👆
             ),
           );
         } else {
-          // Unrecognized ka Error bhi Popup mein dikhayega
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
-              icon: Icon(Icons.error, color: Colors.red, size: 60),
-              title: Text("No Faces Recognized", textAlign: TextAlign.center),
-              content: Text(
+              icon: const Icon(Icons.error, color: Colors.red, size: 60),
+              title: const Text(
+                "No Faces Recognized",
+                textAlign: TextAlign.center,
+              ),
+              content: const Text(
                 "The AI could not recognize any registered students in this photo.",
                 textAlign: TextAlign.center,
               ),
@@ -541,7 +527,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: Text(
+                    child: const Text(
                       "Try Again",
                       style: TextStyle(color: Colors.red),
                     ),
@@ -560,12 +546,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
       }
     } catch (e) {
-      print("Attendance Error: $e");
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
         );
-      }
     }
   }
 
@@ -577,7 +561,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         appBar: AppBar(
           title: Text(widget.courseName),
           backgroundColor: Colors.blueAccent,
-          bottom: TabBar(
+          bottom: const TabBar(
             indicatorColor: Colors.white,
             tabs: [
               Tab(icon: Icon(Icons.how_to_reg), text: "Take Attendance"),
@@ -593,27 +577,27 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.people_alt, size: 80, color: Colors.grey[400]),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Text(
                     "Marking attendance for: ${widget.courseName}",
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: Colors.blueAccent,
                     ),
                   ),
-                  SizedBox(height: 30),
+                  const SizedBox(height: 30),
                   ElevatedButton.icon(
                     onPressed: () {
                       markAttendance();
                     },
-                    icon: Icon(Icons.camera_alt),
-                    label: Text(
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text(
                       "Start Face Recognition",
                       style: TextStyle(fontSize: 16),
                     ),
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 30,
                         vertical: 15,
                       ),
@@ -626,9 +610,9 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
             // TAB 2: PENDING REGISTRATIONS
             isLoading
-                ? Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator())
                 : pendingStudents.isEmpty
-                ? Center(
+                ? const Center(
                     child: Text(
                       "No pending registrations! 🎉",
                       style: TextStyle(fontSize: 18, color: Colors.green),
@@ -639,19 +623,18 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     itemBuilder: (context, index) {
                       var student = pendingStudents[index];
                       return Card(
-                        margin: EdgeInsets.symmetric(
+                        margin: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 5,
                         ),
                         child: ListTile(
-                          // 🚀 NAYA KAAM: Red warning sign ki jagah khoobsurat User Icon
                           leading: CircleAvatar(
                             backgroundColor: Colors.blue[100],
                             child: Icon(Icons.person, color: Colors.blue[800]),
                           ),
                           title: Text(
                             student['name'],
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text("Roll No: ${student['roll_number']}"),
                           trailing: ElevatedButton(
@@ -662,10 +645,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 student['roll_number'],
                               );
                             },
-                            child: Text("Scan Face"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                             ),
+                            child: const Text("Scan Face"),
                           ),
                         ),
                       );
@@ -673,11 +656,13 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   ),
           ],
         ),
-
         floatingActionButton: FloatingActionButton.extended(
           onPressed: showAddStudentDialog,
-          icon: Icon(Icons.add, color: Colors.white),
-          label: Text("Add Student", style: TextStyle(color: Colors.white)),
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text(
+            "Add Student",
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: Colors.blueAccent,
         ),
       ),
