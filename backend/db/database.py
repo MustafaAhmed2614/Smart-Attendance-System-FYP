@@ -55,6 +55,17 @@ def init_db():
         )
     ''')
 
+    # Aapki main.py mein jahan table ban raha hai, usay is se replace karein:
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS attendance (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        roll_number TEXT NOT NULL,
+        course_name TEXT NOT NULL,   
+        date TEXT NOT NULL,
+        time TEXT NOT NULL
+    )
+    ''')
+
     # 🚀 SPEED UPGRADES: Indexing lagana
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_roll ON students(roll_number)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_name ON attendance_logs(student_name)')

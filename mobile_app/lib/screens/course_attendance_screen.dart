@@ -21,20 +21,27 @@ class CourseAttendanceScreen extends StatefulWidget {
 
 class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   final String backendUrl = AppConfig.backendUrl;
+
   List<dynamic> pendingStudents = [];
-  bool isLoading = true;
+  bool isLoadingPending = true;
+
+  // 🚀 NAYE VARIABLES: Aaj ki attendance ke liye
+  List<dynamic> todayAttendanceList = [];
+  bool isLoadingAttendance = true;
+  String todayDate = "";
 
   @override
   void initState() {
     super.initState();
     fetchPendingStudents();
+    fetchTodayAttendance(); // 🚀 Screen khulte hi aaj ki attendance layega
   }
 
   // ==========================================
-  // API: Backend se Pending Students mangwana
+  // API: Get Pending Students
   // ==========================================
   Future<void> fetchPendingStudents() async {
-    setState(() => isLoading = true);
+    setState(() => isLoadingPending = true);
     try {
       final response = await http.get(
         Uri.parse('$backendUrl/pending-students/${widget.courseName}'),
@@ -44,18 +51,43 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         if (data['status'] == 'Success') {
           setState(() {
             pendingStudents = data['pending_students'];
-            isLoading = false;
+            isLoadingPending = false;
           });
         }
       }
     } catch (e) {
       print("Error fetching pending students: $e");
-      setState(() => isLoading = false);
+      setState(() => isLoadingPending = false);
     }
   }
 
   // ==========================================
-  // API: App se naya Student Add Karne Ka Function
+  // 🚀 API: Get Today's Attendance List
+  // ==========================================
+  Future<void> fetchTodayAttendance() async {
+    setState(() => isLoadingAttendance = true);
+    try {
+      final response = await http.get(
+        Uri.parse('$backendUrl/daily-attendance/${widget.courseName}'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'Success') {
+          setState(() {
+            todayAttendanceList = data['attendance_list'];
+            todayDate = data['date'];
+            isLoadingAttendance = false;
+          });
+        }
+      }
+    } catch (e) {
+      print("Error fetching today attendance: $e");
+      setState(() => isLoadingAttendance = false);
+    }
+  }
+
+  // ==========================================
+  // API: Add Student
   // ==========================================
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
@@ -74,7 +106,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       );
 
       if (!mounted) return;
-
       var data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
@@ -94,14 +125,13 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("❌ App Error: $e"),
             backgroundColor: Colors.red,
           ),
         );
-      }
     }
   }
 
@@ -168,7 +198,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 🎨 WIDGET HELPER: Face Tile Banane Ke Liye
+  // WIDGET HELPER: Face Tile
   // ==========================================
   Widget _buildFaceTile(String title, File? image, VoidCallback onTap) {
     return ListTile(
@@ -191,7 +221,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // 📸 UI: Face Register karne ka Popup (5 Images)
+  // UI: Registration Dialog (5 Images)
   // ==========================================
   void showRegistrationDialog(
     BuildContext context,
@@ -231,7 +261,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                       style: TextStyle(color: Colors.grey, fontSize: 13),
                     ),
                     const SizedBox(height: 15),
-
                     _buildFaceTile("1. Front Face", frontImage, () async {
                       final pic = await picker.pickImage(
                         source: ImageSource.camera,
@@ -240,7 +269,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         setDialogState(() => frontImage = File(pic.path));
                     }),
                     const SizedBox(height: 10),
-
                     _buildFaceTile("2. Left Profile", leftImage, () async {
                       final pic = await picker.pickImage(
                         source: ImageSource.camera,
@@ -249,7 +277,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         setDialogState(() => leftImage = File(pic.path));
                     }),
                     const SizedBox(height: 10),
-
                     _buildFaceTile("3. Right Profile", rightImage, () async {
                       final pic = await picker.pickImage(
                         source: ImageSource.camera,
@@ -258,7 +285,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         setDialogState(() => rightImage = File(pic.path));
                     }),
                     const SizedBox(height: 10),
-
                     _buildFaceTile("4. Look Slightly Up", upImage, () async {
                       final pic = await picker.pickImage(
                         source: ImageSource.camera,
@@ -267,7 +293,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         setDialogState(() => upImage = File(pic.path));
                     }),
                     const SizedBox(height: 10),
-
                     _buildFaceTile("5. Random / Smile", smileImage, () async {
                       final pic = await picker.pickImage(
                         source: ImageSource.camera,
@@ -323,7 +348,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // API: 5 Tasweerein Backend par bhejna
+  // API: Upload 5 Faces
   // ==========================================
   Future<void> uploadFacesToAPI(
     String studentName,
@@ -338,14 +363,12 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Uploading 5 faces for $studentName...")),
       );
-
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$backendUrl/register'),
       );
       request.fields['name'] = studentName;
       request.fields['roll_number'] = rollNumber;
-
       request.files.add(
         await http.MultipartFile.fromPath('front_image', front.path),
       );
@@ -371,6 +394,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           ),
         );
         fetchPendingStudents();
+        fetchTodayAttendance(); // 🚀 Refresh list after registration
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -391,7 +415,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
-  // API: Rozana Attendance Lagana (1 Picture)
+  // API: Mark Daily Attendance
   // ==========================================
   Future<void> markAttendance() async {
     final picker = ImagePicker();
@@ -478,6 +502,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     TextButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
+                        fetchTodayAttendance(); // 🚀 Refresh list
                         markAttendance();
                       },
                       icon: const Icon(
@@ -493,7 +518,10 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                       ),
                     ),
                     ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        fetchTodayAttendance(); // 🚀 Refresh list when done
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                       ),
@@ -564,52 +592,167 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           bottom: const TabBar(
             indicatorColor: Colors.white,
             tabs: [
-              Tab(icon: Icon(Icons.how_to_reg), text: "Take Attendance"),
+              Tab(
+                icon: Icon(Icons.how_to_reg),
+                text: "Daily Status",
+              ), // 🚀 Text updated
               Tab(icon: Icon(Icons.person_add_alt_1), text: "Pending Faces"),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            // TAB 1: DAILY ATTENDANCE
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.people_alt, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 20),
-                  Text(
-                    "Marking attendance for: ${widget.courseName}",
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      markAttendance();
-                    },
+            // ==========================================
+            // TAB 1: 🚀 NAYA DESIGN (ATTENDANCE LIST + BUTTON)
+            // ==========================================
+            Column(
+              children: [
+                // Scan Button at the top
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  width: double.infinity,
+                  color: Colors.blue[50],
+                  child: ElevatedButton.icon(
+                    onPressed: markAttendance,
                     icon: const Icon(Icons.camera_alt),
                     label: const Text(
-                      "Start Face Recognition",
+                      "Scan Class for Attendance",
                       style: TextStyle(fontSize: 16),
                     ),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 30,
-                        vertical: 15,
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                       backgroundColor: Colors.blueAccent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
-                ],
-              ),
+                ),
+
+                // Date Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 15,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Today's Roster",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        todayDate,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(),
+
+                // Attendance List
+                Expanded(
+                  child: isLoadingAttendance
+                      ? const Center(child: CircularProgressIndicator())
+                      : todayAttendanceList.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.group_off,
+                                size: 60,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                "No registered students found.",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: todayAttendanceList.length,
+                          itemBuilder: (context, index) {
+                            var student = todayAttendanceList[index];
+                            bool isPresent = student['status'] == "Present";
+
+                            return Card(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  color: isPresent
+                                      ? Colors.green.shade200
+                                      : Colors.red.shade200,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: isPresent
+                                      ? Colors.green[100]
+                                      : Colors.red[100],
+                                  child: Icon(
+                                    isPresent ? Icons.check : Icons.close,
+                                    color: isPresent
+                                        ? Colors.green[800]
+                                        : Colors.red[800],
+                                  ),
+                                ),
+                                title: Text(
+                                  student['name'],
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  "Roll No: ${student['roll_number']}",
+                                ),
+                                trailing: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isPresent
+                                        ? Colors.green
+                                        : Colors.red,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    student['status'],
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
 
+            // ==========================================
             // TAB 2: PENDING REGISTRATIONS
-            isLoading
+            // ==========================================
+            isLoadingPending
                 ? const Center(child: CircularProgressIndicator())
                 : pendingStudents.isEmpty
                 ? const Center(

@@ -122,23 +122,26 @@ os.makedirs(ATTENDANCE_IMG_DIR, exist_ok=True)
 @app.post("/detect-attendance/")
 async def detect_attendance(
     file: UploadFile = File(...), 
-    course_name: str = Form("AI") 
+    course_name: str = Form(...) # Removed default "AI" to ensure it uses the exact flutter value
 ):
-    # 🚀 2. Tasweer ko Date aur Time ke hisaab se naam dena
+    # 🚀 FIX 1: Remove extra spaces from course name
+    clean_course_name = course_name.strip()
+    
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y-%m-%d_%H-%M-%S")
     today_date = current_time.strftime("%Y-%m-%d")
+    time_now = current_time.strftime("%H:%M:%S")
     
-    # Naya File Path: e.g., "attendance_photos/AI_2026-05-07_19-30-00.jpg"
-    filename = f"{course_name}_{timestamp}.jpg"
+    # Naya File Path
+    filename = f"{clean_course_name}_{timestamp}.jpg"
     file_path = os.path.join(ATTENDANCE_IMG_DIR, filename) 
     
     try:
-        # Tasweer ko hamesha ke liye save karna
+        # Save image permanently
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # AI Engine logic
+        # AI Engine logic returns list of names (e.g., ["Mustafa", "Ali"])
         final_names = recognize_faces(file_path)
 
         img_base64 = None 
@@ -148,20 +151,35 @@ async def detect_attendance(
             cursor = conn.cursor()
             
             for name in final_names:
-                # 🚀 3. DUPLICATE CHECK: Kya aaj is bache ki is course mein attendance lag chuki hai?
-                cursor.execute('''
-                    SELECT id FROM attendance_logs 
-                    WHERE student_name = ? AND course_name = ? AND timestamp LIKE ?
-                ''', (name, course_name, f"{today_date}%"))
+                # 🚀 FIX 2: Get Roll Number from students table using the recognized name
+                cursor.execute("SELECT roll_number FROM students WHERE name = ?", (name,))
+                student_row = cursor.fetchone()
                 
-                exists = cursor.fetchone()
-                
-                if not exists:
-                    # Agar pehle nahi lagi, sirf tabhi database mein Insert karo
-                    cursor.execute(
-                        "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
-                        (name, "Present", course_name)
-                    )
+                if student_row:
+                    roll_no = student_row["roll_number"]
+                    
+                    # 🚀 FIX 3: Check Duplicate in 'attendance' table
+                    cursor.execute('''
+                        SELECT id FROM attendance 
+                        WHERE roll_number = ? AND course_name = ? AND date = ?
+                    ''', (roll_no, clean_course_name, today_date))
+                    
+                    exists = cursor.fetchone()
+                    
+                    if not exists:
+                        # 1. Insert into 'attendance' (For Daily Status Tab in App)
+                        cursor.execute(
+                            "INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", 
+                            (roll_no, clean_course_name, today_date, time_now)
+                        )
+                        
+                        # 2. Insert into 'attendance_logs' (Your original table for history)
+                        cursor.execute(
+                            "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
+                            (name, "Present", clean_course_name)
+                        )
+                        print(f"✅ Attendance marked for {name} ({roll_no}) in {clean_course_name}")
+
             conn.commit()
             conn.close()
 
@@ -172,15 +190,8 @@ async def detect_attendance(
                 cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
                 y_position += 30 
                 
-            # Edit ki hui tasweer ko wapas Base64 mein convert karna
             _, buffer = cv2.imencode('.jpg', image)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
-            
-            # 🚀 Optional: Agar aap chahte hain ke jo tasweer folder mein save ho us par 
-            # bachon ke naam (Green text) likhe hon, toh is line ko uncomment kar dein:
-            # cv2.imwrite(file_path, image)
-
-        # 🚀 4. YAHAN SE 'os.remove()' HATA DIYA HAI TAAKE PHOTO DELETE NA HO!
 
         return {
             "status": "Success",
@@ -190,13 +201,10 @@ async def detect_attendance(
         }
 
     except Exception as e:
-        # Agar error aaye (jaise file corrupt ho), toh ghalat file ko delete kar do
         if os.path.exists(file_path):
             os.remove(file_path)
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "recognized_students": [], "message": str(e)}    
-    
-    
     # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
@@ -207,6 +215,58 @@ def view_attendance():
     conn.close()
     return {"logs": logs}
 
+@app.get("/daily-attendance/{course_name}")
+async def get_daily_attendance(course_name: str):
+    try:
+        # Python level extra space removal
+        clean_course = course_name.strip()
+        print(f"\n📊 Fetching attendance list for: '{clean_course}'")
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Aaj ki date
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. Fetch enrolled students (using TRIM to ignore database spaces)
+        cursor.execute('''
+            SELECT s.name, s.roll_number 
+            FROM students s
+            JOIN enrollments e ON s.roll_number = e.roll_number
+            WHERE TRIM(e.course_name) = ? AND s.face_status = 'Registered'
+        ''', (clean_course,))
+        all_students = cursor.fetchall()
+        
+        # 2. Fetch the roll numbers of students who are marked present today
+        cursor.execute('''
+            SELECT roll_number FROM attendance 
+            WHERE TRIM(course_name) = ? AND date = ?
+        ''', (clean_course, today))
+        
+        present_rolls = [row["roll_number"] for row in cursor.fetchall()]
+        print(f"✅ Found Present Roll Numbers Today: {present_rolls}")
+        
+        conn.close()
+        
+        # 3. Create a combined list with Present/Absent status
+        attendance_list = []
+        for student in all_students:
+            status = "Present" if student["roll_number"] in present_rolls else "Absent"
+            attendance_list.append({
+                "name": student["name"],
+                "roll_number": student["roll_number"],
+                "status": status
+            })
+            
+        return {
+            "status": "Success", 
+            "date": today, 
+            "attendance_list": attendance_list
+        }
+        
+    except Exception as e:
+        print(f"‼️ Error fetching daily attendance: {e}")
+        return {"status": "Error", "message": str(e)}
 # 4. EXPORT ATTENDANCE TO EXCEL (CSV)
 @app.get("/export-attendance/")
 def export_attendance():
