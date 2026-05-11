@@ -87,6 +87,55 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // ==========================================
+  // API: Manual Toggle Attendance
+  // ==========================================
+  Future<void> toggleManualAttendance(
+    String rollNumber,
+    String currentStatus,
+  ) async {
+    // Agar present hai toh absent kar do, warna present kar do
+    String newStatus = currentStatus == "Present" ? "Absent" : "Present";
+
+    // 🚀 Optimistic UI Update: Screen par foran status change kar do taake teacher ko wait na karna pare
+    setState(() {
+      for (var student in todayAttendanceList) {
+        if (student['roll_number'] == rollNumber) {
+          student['status'] = newStatus;
+        }
+      }
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('$backendUrl/toggle-attendance/'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "roll_number": rollNumber,
+          "course_name": widget.courseName,
+          "status": newStatus,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'Success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(data['message']),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        } else {
+          fetchTodayAttendance(); // Error ho toh wapas purana status le aao
+        }
+      }
+    } catch (e) {
+      fetchTodayAttendance(); // Internet error par revert kar do
+    }
+  }
+
+  // ==========================================
   // API: Add Student
   // ==========================================
   Future<void> addStudentToDatabase(String name, String rollNo) async {
@@ -721,23 +770,55 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 subtitle: Text(
                                   "Roll No: ${student['roll_number']}",
                                 ),
-                                trailing: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isPresent
-                                        ? Colors.green
-                                        : Colors.red,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    student['status'],
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                trailing: GestureDetector(
+                                  onTap: () {
+                                    // 🚀 Jab is label par click hoga toh toggle function call hoga
+                                    toggleManualAttendance(
+                                      student['roll_number'],
+                                      student['status'],
+                                    );
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isPresent
+                                          ? Colors.green
+                                          : Colors.red,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color:
+                                              (isPresent
+                                                      ? Colors.green
+                                                      : Colors.red)
+                                                  .withOpacity(0.3),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          student['status'],
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Icon(
+                                          Icons.touch_app,
+                                          color: Colors.white,
+                                          size: 15,
+                                        ), // Clickable ka icon
+                                      ],
                                     ),
                                   ),
                                 ),
