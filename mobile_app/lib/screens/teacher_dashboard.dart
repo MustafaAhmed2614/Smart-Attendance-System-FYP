@@ -4,10 +4,9 @@ import 'dart:convert';
 import '../constants.dart';
 import 'login_screen.dart';
 import 'course_attendance_screen.dart';
-// Note: Hum agli screen mein CourseAttendance wali file banayenge
 
 class TeacherDashboard extends StatefulWidget {
-  final String teacherUsername; // Teacher ka username yahan aayega
+  final String teacherUsername;
 
   TeacherDashboard({required this.teacherUsername});
 
@@ -33,6 +32,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       final response = await http.get(
         Uri.parse('$backendUrl/my-courses/${widget.teacherUsername}'),
       );
+
+      if (!mounted) return; // 🚀 CRASH FIX
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['status'] == 'Success') {
@@ -40,10 +42,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             courses = data['courses'];
             isLoading = false;
           });
+        } else {
+          setState(() => isLoading = false);
         }
       }
     } catch (e) {
       print("Error fetching courses: $e");
+      if (!mounted) return;
       setState(() => isLoading = false);
     }
   }
@@ -59,18 +64,30 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           "teacher_username": widget.teacherUsername,
         }),
       );
+
+      if (!mounted) return; // 🚀 CRASH FIX: API call ke baad check lagaya
+
       final data = jsonDecode(response.body);
       if (data['status'] == 'Success') {
-        fetchCourses(); // List ko refresh karein
+        await fetchCourses(); // 🚀 Wait for the list to refresh
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['message']),
             backgroundColor: Colors.green,
           ),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message']), backgroundColor: Colors.red),
+        );
       }
     } catch (e) {
       print("Error adding course: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -93,8 +110,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ElevatedButton(
             onPressed: () {
               if (courseController.text.isNotEmpty) {
-                Navigator.pop(context); // Dialog band karein
-                addCourse(courseController.text); // Course save karein
+                Navigator.pop(context);
+                addCourse(
+                  courseController.text.trim(),
+                ); // 🚀 FIX: Extra space remove kar diya
               }
             },
             child: Text("Create"),
@@ -112,7 +131,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         backgroundColor: Colors.blueAccent,
         actions: [
           IconButton(
-            icon: Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
@@ -125,60 +144,79 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
-          : courses.isEmpty
-          ? Center(child: Text("No courses found. Create one!"))
-          : GridView.builder(
-              padding: EdgeInsets.all(15),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, // Ek line mein 2 boxes
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                childAspectRatio: 1.2,
-              ),
-              itemCount: courses.length,
-              itemBuilder: (context, index) {
-                String courseName = courses[index];
-                return GestureDetector(
-                  onTap: () {
-                    // YAHAN HUM AGLI SCREEN PAR JAYENGE
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CourseAttendanceScreen(
-                          courseName: courseName,
-                          teacherUsername: widget.teacherUsername,
+          : RefreshIndicator(
+              onRefresh: fetchCourses, // 🚀 PULL TO REFRESH ADD KIYA
+              color: Colors.blueAccent,
+              child: courses.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.3,
                         ),
-                      ),
-                    );
-                  },
-                  child: Card(
-                    elevation: 5,
-                    color: Colors.blueAccent.withOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          courseName,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blueAccent,
+                        Center(
+                          child: Text(
+                            "No courses found. Create one!\nPull down to refresh.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ),
+                      ],
+                    )
+                  : GridView.builder(
+                      physics:
+                          const AlwaysScrollableScrollPhysics(), // 🚀 Scrollable laazmi hai refresh ke liye
+                      padding: EdgeInsets.all(15),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 15,
+                        mainAxisSpacing: 15,
+                        childAspectRatio: 1.2,
                       ),
+                      itemCount: courses.length,
+                      itemBuilder: (context, index) {
+                        String courseName = courses[index];
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CourseAttendanceScreen(
+                                  courseName: courseName,
+                                  teacherUsername: widget.teacherUsername,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Card(
+                            elevation: 5,
+                            color: Colors.blueAccent.withOpacity(0.1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  courseName,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blueAccent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ),
-                );
-              },
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: showAddCourseDialog,
-        icon: Icon(Icons.add),
-        label: Text("Add Course"),
+        icon: Icon(Icons.add, color: Colors.white),
+        label: Text("Add Course", style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blueAccent,
       ),
     );

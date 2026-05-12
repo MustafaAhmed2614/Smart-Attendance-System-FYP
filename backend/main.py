@@ -379,21 +379,17 @@ def get_my_attendance(roll_number: str):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Step 1: Roll number se student ka naam nikalna
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
         if not student:
             conn.close()
-            print(f"❌ Student with roll {roll_number} not found!")
             return {"status": "Error", "message": "Student not found!"}
             
         student_name = student[0]
-        print(f"🔍 Searching attendance for Name: {student_name}")
 
-        # Step 2: Attendance logs mein naam search karna (Newest first)
         cursor.execute('''
-            SELECT status, timestamp 
+            SELECT status, timestamp, course_name 
             FROM attendance_logs 
             WHERE student_name LIKE ? 
             ORDER BY timestamp DESC
@@ -402,37 +398,44 @@ def get_my_attendance(roll_number: str):
         records = cursor.fetchall()
         conn.close()
 
-        # 🚀 STEP 3: LOGIC FIX - Har date ka sirf aakhri (latest) status rakhna
-        unique_daily_logs = {}
+        grouped_data = {}
         
         for row in records:
             status = row[0]
-            timestamp_str = row[1] # e.g., "2026-05-12 14:42:48"
+            timestamp_str = row[1]
             
-            # String ke pehle 10 characters hamesha Date hote hain (YYYY-MM-DD)
-            date_only = timestamp_str[:10] 
+            # 🚀 MAIN FIX: .strip() lagaya hai taake "AI " aur "AI" merge ho kar ek ban jayein
+            raw_course_name = row[2] if row[2] else "Unknown Course"
+            course_name = raw_course_name.strip() 
             
-            # Kyunke query 'DESC' hai (naya sab se upar), toh jo date dictionary mein 
-            # pehli dafa aayegi woh automatically us din ka sab se latest status hogi!
-            if date_only not in unique_daily_logs:
-                unique_daily_logs[date_only] = [status, timestamp_str]
+            date_only = timestamp_str[:10]
+            
+            # Grouping logic
+            if course_name not in grouped_data:
+                grouped_data[course_name] = {}
                 
-        # Dictionary ko wapas list mein badalna jo Flutter ko chahiye
-        formatted_logs = list(unique_daily_logs.values())
-        
-        print(f"✅ Found {len(formatted_logs)} unique daily records for {student_name}")
+            if date_only not in grouped_data[course_name]:
+                grouped_data[course_name][date_only] = {
+                    "status": status,
+                    "date": timestamp_str
+                }
+                
+        final_output = []
+        for course, dates in grouped_data.items():
+            final_output.append({
+                "course_name": course,
+                "records": list(dates.values())
+            })
 
         return {
             "status": "Success", 
             "student_name": student_name,
-            "logs": formatted_logs
+            "attendance_data": final_output
         }
         
     except Exception as e:
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "message": str(e)}# ==========================================
-# 🚀 NAYI APIs COURSES KE LIYE
-# ==========================================
 
 # 1. Naya Course Banane ki API
 @app.post("/add-course/")
@@ -590,4 +593,19 @@ async def toggle_manual_attendance(data: dict):
         
     except Exception as e:
         print(f"‼️ Error toggling manual attendance: {e}")
+        return {"status": "Error", "message": str(e)}
+    
+@app.get("/teacher-courses/{username}")
+def get_teacher_courses(username: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 🚀 TRIM use karein taake extra spaces filter mein masla na karein
+        cursor.execute("SELECT course_name FROM courses WHERE TRIM(teacher_username) = ?", (username.strip(),))
+        courses = [row["course_name"] for row in cursor.fetchall()]
+        
+        conn.close()
+        return {"status": "Success", "courses": courses}
+    except Exception as e:
         return {"status": "Error", "message": str(e)}

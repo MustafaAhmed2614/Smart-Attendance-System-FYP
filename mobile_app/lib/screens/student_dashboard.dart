@@ -16,7 +16,9 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   final String backendUrl = AppConfig.backendUrl;
-  List<dynamic> myLogs = [];
+
+  // 🚀 NAYA VARIABLE: Grouped data store karne ke liye
+  List<dynamic> attendanceData = [];
   String studentName = "";
   bool isLoading = true;
 
@@ -35,7 +37,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         final data = jsonDecode(response.body);
         setState(() {
           studentName = data['student_name'];
-          myLogs = data['logs'];
+          attendanceData = data['attendance_data']; // 🚀 Update kiya gaya
           isLoading = false;
         });
       }
@@ -91,7 +93,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     child: RefreshIndicator(
                       onRefresh: fetchMyAttendance,
                       color: Colors.blueAccent,
-                      child: myLogs.isEmpty
+                      child: attendanceData.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),
                               children: [
@@ -110,49 +112,83 @@ class _StudentDashboardState extends State<StudentDashboard> {
                             )
                           : ListView.builder(
                               physics: const AlwaysScrollableScrollPhysics(),
-                              itemCount: myLogs.length,
+                              itemCount: attendanceData.length,
                               itemBuilder: (context, index) {
-                                var log = myLogs[index];
-                                String statusText = log[0].toString();
+                                var courseData = attendanceData[index];
+                                String courseName = courseData['course_name'];
+                                List records = courseData['records'];
 
-                                // 🚀 FIX: Ab yeh check karega ke status mein "Present" ka lafz majood hai ya nahi
-                                bool isPresent = statusText.contains("Present");
-
+                                // 🚀 NAYA DESIGN: Course ka Dropdown (Accordion)
                                 return Card(
                                   margin: const EdgeInsets.symmetric(
-                                    vertical: 5,
+                                    vertical: 8,
                                   ),
+                                  elevation: 2,
                                   shape: RoundedRectangleBorder(
-                                    side: BorderSide(
-                                      color: isPresent
-                                          ? Colors.green.shade200
-                                          : Colors.red.shade200,
-                                      width: 1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: isPresent
-                                          ? Colors.green[100]
-                                          : Colors.red[100],
+                                  child: ExpansionTile(
+                                    leading: const CircleAvatar(
+                                      backgroundColor: Colors.blueAccent,
                                       child: Icon(
-                                        isPresent ? Icons.check : Icons.close,
-                                        color: isPresent
-                                            ? Colors.green[800]
-                                            : Colors.red[800],
+                                        Icons.menu_book,
+                                        color: Colors.white,
+                                        size: 20,
                                       ),
                                     ),
                                     title: Text(
-                                      "Status: $statusText",
-                                      style: TextStyle(
+                                      courseName,
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: isPresent
-                                            ? Colors.green[700]
-                                            : Colors.red[700],
+                                        fontSize: 16,
                                       ),
                                     ),
-                                    subtitle: Text("Date: ${log[1]}"),
+                                    subtitle: Text(
+                                      "${records.length} Classes Recorded",
+                                      style: const TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+
+                                    // 🚀 Is course ke andar mojood saari dates
+                                    children: records.map<Widget>((record) {
+                                      String statusText = record['status']
+                                          .toString();
+                                      bool isPresent = statusText.contains(
+                                        "Present",
+                                      );
+
+                                      return Container(
+                                        color: Colors
+                                            .grey[50], // Andar wali list ka halka background
+                                        child: ListTile(
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 25,
+                                              ),
+                                          leading: Icon(
+                                            isPresent
+                                                ? Icons.check_circle
+                                                : Icons.cancel,
+                                            color: isPresent
+                                                ? Colors.green
+                                                : Colors.red,
+                                          ),
+                                          title: Text(
+                                            "Status: $statusText",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isPresent
+                                                  ? Colors.green[700]
+                                                  : Colors.red[700],
+                                            ),
+                                          ),
+                                          subtitle: Text(
+                                            "Date: ${record['date']}",
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
                                   ),
                                 );
                               },
