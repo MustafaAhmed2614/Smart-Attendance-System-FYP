@@ -391,8 +391,7 @@ def get_my_attendance(roll_number: str):
         student_name = student[0]
         print(f"🔍 Searching attendance for Name: {student_name}")
 
-        # Step 2: Attendance logs mein naam search karna
-        # (Humne yahan '%' use kiya hai taake agar naam thora agay piche bhi ho toh mil jaye)
+        # Step 2: Attendance logs mein naam search karna (Newest first)
         cursor.execute('''
             SELECT status, timestamp 
             FROM attendance_logs 
@@ -402,13 +401,27 @@ def get_my_attendance(roll_number: str):
         
         records = cursor.fetchall()
         conn.close()
-        
-        print(f"✅ Found {len(records)} records for {student_name}")
 
-        formatted_logs = []
+        # 🚀 STEP 3: LOGIC FIX - Har date ka sirf aakhri (latest) status rakhna
+        unique_daily_logs = {}
+        
         for row in records:
-            formatted_logs.append([row[0], row[1]])
+            status = row[0]
+            timestamp_str = row[1] # e.g., "2026-05-12 14:42:48"
             
+            # String ke pehle 10 characters hamesha Date hote hain (YYYY-MM-DD)
+            date_only = timestamp_str[:10] 
+            
+            # Kyunke query 'DESC' hai (naya sab se upar), toh jo date dictionary mein 
+            # pehli dafa aayegi woh automatically us din ka sab se latest status hogi!
+            if date_only not in unique_daily_logs:
+                unique_daily_logs[date_only] = [status, timestamp_str]
+                
+        # Dictionary ko wapas list mein badalna jo Flutter ko chahiye
+        formatted_logs = list(unique_daily_logs.values())
+        
+        print(f"✅ Found {len(formatted_logs)} unique daily records for {student_name}")
+
         return {
             "status": "Success", 
             "student_name": student_name,
@@ -417,9 +430,7 @@ def get_my_attendance(roll_number: str):
         
     except Exception as e:
         print(f"‼️ API ERROR: {str(e)}")
-        return {"status": "Error", "message": str(e)}    
-
-# ==========================================
+        return {"status": "Error", "message": str(e)}# ==========================================
 # 🚀 NAYI APIs COURSES KE LIYE
 # ==========================================
 
