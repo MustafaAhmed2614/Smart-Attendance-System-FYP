@@ -150,35 +150,48 @@ async def detect_attendance(
             conn = get_db_connection()
             cursor = conn.cursor()
             
+            # List to store only those names who are actually in the class
+            valid_students_marked = []
+            
             for name in final_names:
-                # 🚀 FIX 2: Get Roll Number from students table using the recognized name
-                cursor.execute("SELECT roll_number FROM students WHERE name = ?", (name,))
+                # 🚀 SMART FIX: SQL JOIN lagaya hai! 
+                # Check karo ke bacha mojood hai AND is course mein enrolled hai
+                cursor.execute('''
+                    SELECT s.roll_number 
+                    FROM students s
+                    JOIN enrollments e ON s.roll_number = e.roll_number
+                    WHERE s.name = ? AND TRIM(e.course_name) = ?
+                ''', (name, clean_course_name))
+                
                 student_row = cursor.fetchone()
                 
                 if student_row:
                     roll_no = student_row["roll_number"]
+                    valid_students_marked.append(name) # Valid student mil gaya
                     
-                    # 🚀 FIX 3: Check Duplicate in 'attendance' table
+                    # Duplicate check
                     cursor.execute('''
                         SELECT id FROM attendance 
-                        WHERE roll_number = ? AND course_name = ? AND date = ?
+                        WHERE roll_number = ? AND TRIM(course_name) = ? AND date = ?
                     ''', (roll_no, clean_course_name, today_date))
                     
                     exists = cursor.fetchone()
                     
                     if not exists:
-                        # 1. Insert into 'attendance' (For Daily Status Tab in App)
+                        # Mark in Daily Attendance
                         cursor.execute(
                             "INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", 
                             (roll_no, clean_course_name, today_date, time_now)
                         )
-                        
-                        # 2. Insert into 'attendance_logs' (Your original table for history)
+                        # Save in Logs
                         cursor.execute(
                             "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
                             (name, "Present", clean_course_name)
                         )
-                        print(f"✅ Attendance marked for {name} ({roll_no}) in {clean_course_name}")
+                        print(f"✅ Marked {name} ({roll_no}) in {clean_course_name}")
+                else:
+                    # 🚀 Agar bacha kisi aur course ka hai, toh ignore kar do
+                    print(f"⚠️ Ignored '{name}': Recognized by AI but NOT enrolled in {clean_course_name}")
 
             conn.commit()
             conn.close()
@@ -186,18 +199,24 @@ async def detect_attendance(
             # --- Image processing (Drawing names) ---
             image = cv2.imread(file_path)
             y_position = 30
-            for name in final_names:
+            
+            # 🚀 FIX 1: Tasweer par sirf unke naam likho jo waqai is course mein hain
+            for name in valid_students_marked:
                 cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
                 y_position += 30 
                 
             _, buffer = cv2.imencode('.jpg', image)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
 
+        # 🚀 FIX 2: Flutter App ko sirf 'valid_students_marked' ki list bhejo
+        # Agar final_names empty hai (kuch detect nahi hua), toh empty list bhejo
+        return_list = valid_students_marked if final_names else []
+
         return {
             "status": "Success",
-            "recognized_students": final_names,
+            "recognized_students": return_list,
             "image": img_base64,
-            "message": f"Attendance marked for: {', '.join(final_names)}" if final_names else "No matching student found."
+            "message": f"Attendance marked for: {', '.join(return_list)}" if return_list else "No enrolled student recognized."
         }
 
     except Exception as e:
@@ -498,14 +517,35 @@ def admin_add_student(student: AdminStudentCreate):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Student ko database mein save karein 
-        # (face_status khud-ba-khud 'Pending' save ho jayega database rule ke mutabiq)
-        cursor.execute(
-            "INSERT INTO students (name, roll_number) VALUES (?, ?)",
-            (student.name, student.roll_number)
-        )
+        # Step 1: Check if the student already exists in the main students table
+        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (student.roll_number,))
+        existing_student = cursor.fetchone()
         
-        # 2. Student ko uske course mein enroll karein
+        if not existing_student:
+            # Student is new, add them to the 'students' table
+            cursor.execute(
+                "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, ?)",
+                (student.name, student.roll_number, "Pending")
+            )
+            print(f"New student {student.name} registered in the system.")
+        else:
+            print(f"Student {student.name} already exists. Proceeding to course enrollment.")
+
+        # Step 2: Check if the student is already enrolled in this specific course
+        cursor.execute(
+            "SELECT * FROM enrollments WHERE roll_number = ? AND course_name = ?",
+            (student.roll_number, student.course_name)
+        )
+        already_enrolled = cursor.fetchone()
+
+        if already_enrolled:
+            conn.close()
+            return {
+                "status": "Error", 
+                "message": f"Student {student.name} is already enrolled in {student.course_name}!"
+            }
+
+        # Step 3: Enroll the student in the target course
         cursor.execute(
             "INSERT INTO enrollments (roll_number, course_name) VALUES (?, ?)",
             (student.roll_number, student.course_name)
@@ -516,15 +556,12 @@ def admin_add_student(student: AdminStudentCreate):
         
         return {
             "status": "Success", 
-            "message": f"Student {student.name} added successfully! Face registration is Pending."
+            "message": f"Student {student.name} successfully enrolled in {student.course_name}!"
         }
         
-    except sqlite3.IntegrityError:
-        # Agar roll number pehle se majood ho
-        return {"status": "Error", "message": "This Roll Number already exists in the system!"}
     except Exception as e:
-        return {"status": "Error", "message": str(e)}
-    
+        print(f"API ERROR in admin_add_student: {str(e)}")
+        return {"status": "Error", "message": str(e)}    
 
 # 3. Pending Students ki list mangwane ki API
 @app.get("/pending-students/{course_name}")

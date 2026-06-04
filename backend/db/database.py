@@ -75,8 +75,9 @@ def init_db():
     conn.close()
 
 def get_db_connection():
-    
-    conn = sqlite3.connect("attendance.db", timeout=10.0)
-    # Is se data return karte waqt handle karna asaan hota hai
+    # 🚀 WAL Mode aur Timeout (Database Lock ka pakka ilaaj)
+    conn = sqlite3.connect("attendance.db", timeout=20.0, check_same_thread=False)
+    conn.execute('PRAGMA journal_mode=WAL;')
+    conn.execute('PRAGMA synchronous=NORMAL;')
     conn.row_factory = sqlite3.Row 
     return conn
