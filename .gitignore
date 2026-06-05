@@ -27,3 +27,7 @@ mobile_app/build/
 
 # OS
 .DS_Store
+
+# Ignore SQLite temporary files
+*.db-wal
+*.db-shm

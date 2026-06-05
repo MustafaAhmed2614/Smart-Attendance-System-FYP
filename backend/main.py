@@ -646,3 +646,53 @@ def get_teacher_courses(username: str):
         return {"status": "Success", "courses": courses}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
+    
+@app.get("/admin/all-students-info/")
+def get_all_students_info():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Fetch all students, their enrolled courses, and the respective teachers
+        # using LEFT JOIN so even students without courses show up
+        cursor.execute('''
+            SELECT s.name, s.roll_number, s.face_status, e.course_name, c.teacher_username
+            FROM students s
+            LEFT JOIN enrollments e ON s.roll_number = e.roll_number
+            LEFT JOIN courses c ON TRIM(e.course_name) = TRIM(c.course_name)
+            ORDER BY s.name
+        ''')
+        
+        rows = cursor.fetchall()
+        conn.close()
+
+        # Group the fetched data by student roll number
+        grouped_data = {}
+        for row in rows:
+            roll = row["roll_number"]
+            
+            # Initialize student record if not already in dictionary
+            if roll not in grouped_data:
+                grouped_data[roll] = {
+                    "name": row["name"],
+                    "roll_number": roll,
+                    "face_status": row["face_status"],
+                    "enrollments": []
+                }
+            
+            # Add course and teacher details if the student is enrolled in a course
+            if row["course_name"]:
+                grouped_data[roll]["enrollments"].append({
+                    "course_name": row["course_name"],
+                    "teacher": row["teacher_username"] if row["teacher_username"] else "No Teacher Assigned"
+                })
+        
+        # Convert dictionary to a list format for Flutter
+        students_list = list(grouped_data.values())
+        print(f"Successfully fetched {len(students_list)} students for admin view.")
+
+        return {"status": "Success", "data": students_list}
+        
+    except Exception as e:
+        print(f"API ERROR in get_all_students_info: {str(e)}")
+        return {"status": "Error", "message": str(e)}

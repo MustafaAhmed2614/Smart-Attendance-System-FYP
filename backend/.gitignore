@@ -10,3 +10,5 @@ myenv/
 representations_arcface.pkl
 __pycache__/
 *.pyc
+
+# Ignore SQLite temporary files

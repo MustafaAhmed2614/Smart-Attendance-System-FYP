@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../constants.dart';
 import 'login_screen.dart';
 import 'course_attendance_screen.dart';
+import 'all_student_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final String teacherUsername;
@@ -130,8 +131,22 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         title: Text('My Courses'),
         backgroundColor: Colors.blueAccent,
         actions: [
+          // New button added to navigate to the Directory Screen
+          IconButton(
+            icon: Icon(Icons.people_alt, color: Colors.white),
+            tooltip: 'All Students Directory',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => AllStudentsScreen()),
+              );
+            },
+          ),
+
+          // Your existing Logout button
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout',
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
