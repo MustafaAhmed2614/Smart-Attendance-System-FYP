@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'FYP Smart Attendance',
+      title: 'Attend AI',
       debugShowCheckedModeBanner:
           false, // Top right se debug banner hatane ke liye
       theme: ThemeData(

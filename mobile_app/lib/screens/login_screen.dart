@@ -108,21 +108,23 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // App Logo
-              const Icon(
-                Icons.face_retouching_natural,
-                size: 100,
-                color: Colors.blueAccent,
+              // Purana Icon code hata kar yeh laga dein:
+              Image.asset(
+                'assets/app_icon.png', // Aapki file ka path
+                width: 400, // Icon ke size ke barabar width
+                height: 250, // Icon ke size ke barabar height
+                fit: BoxFit.contain, // Yeh ensure karega ke image kharab na ho
               ),
-              const SizedBox(height: 20),
-              const Text(
-                "Smart Attendance",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
-                ),
-              ),
-              const SizedBox(height: 30),
+              // const SizedBox(height: 10),
+              // const Text(
+              //   "ATTEND AI",
+              //   style: TextStyle(
+              //     fontSize: 24,
+              //     fontWeight: FontWeight.bold,
+              //     color: Colors.blueAccent,
+              //   ),
+              // ),
+              // const SizedBox(height: 30),
 
               // Toggle Button
               Row(
