@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
               // App Logo
               // Purana Icon code hata kar yeh laga dein:
               Image.asset(
-                'assets/app_icon.png', // Aapki file ka path
+                'assets/login_icon.png', // Aapki file ka path
                 width: 400, // Icon ke size ke barabar width
                 height: 250, // Icon ke size ke barabar height
                 fit: BoxFit.contain, // Yeh ensure karega ke image kharab na ho
