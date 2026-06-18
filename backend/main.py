@@ -696,3 +696,77 @@ def get_all_students_info():
     except Exception as e:
         print(f"API ERROR in get_all_students_info: {str(e)}")
         return {"status": "Error", "message": str(e)}
+    
+# ==========================================
+# 🕒 TEACHER HISTORY APIs (Date & Time Filter)
+# ==========================================
+
+# 1. API: Kisi specific course ki saari Dates/Sessions mangwane ke liye
+@app.get("/course-sessions/{course_name}")
+def get_course_sessions(course_name: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # DISTINCT use kiya hai taake ek date list mein bar bar repeat na ho
+        cursor.execute('''
+            SELECT DISTINCT date 
+            FROM attendance 
+            WHERE TRIM(course_name) = ? 
+            ORDER BY date DESC
+        ''', (course_name.strip(),))
+        
+        sessions = [row["date"] for row in cursor.fetchall()]
+        conn.close()
+        
+        return {"status": "Success", "sessions": sessions}
+    except Exception as e:
+        print(f"‼️ API ERROR in get_course_sessions: {str(e)}")
+        return {"status": "Error", "message": str(e)}
+
+# 2. API: Kisi bhi purani Date (Session) ki Attendance Details dekhne ke liye
+@app.get("/attendance-by-date/{course_name}/{target_date}")
+def get_attendance_by_date(course_name: str, target_date: str):
+    try:
+        clean_course = course_name.strip()
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Step A: Us course ke saare registered bachon ki list nikalein
+        cursor.execute('''
+            SELECT s.name, s.roll_number 
+            FROM students s
+            JOIN enrollments e ON s.roll_number = e.roll_number
+            WHERE TRIM(e.course_name) = ? AND s.face_status = 'Registered'
+        ''', (clean_course,))
+        all_students = cursor.fetchall()
+        
+        # Step B: Us specific date par jo bachay present thay, unke roll numbers nikalein
+        cursor.execute('''
+            SELECT roll_number FROM attendance 
+            WHERE TRIM(course_name) = ? AND date = ?
+        ''', (clean_course, target_date))
+        
+        present_rolls = [row["roll_number"] for row in cursor.fetchall()]
+        conn.close()
+        
+        # Step C: Match karke ek complete Final List tayar karein
+        attendance_list = []
+        for student in all_students:
+            status = "Present" if student["roll_number"] in present_rolls else "Absent"
+            attendance_list.append({
+                "name": student["name"],
+                "roll_number": student["roll_number"],
+                "status": status
+            })
+            
+        return {
+            "status": "Success", 
+            "date": target_date, 
+            "course_name": clean_course,
+            "attendance_list": attendance_list
+        }
+        
+    except Exception as e:
+        print(f"‼️ API ERROR in get_attendance_by_date: {str(e)}")
+        return {"status": "Error", "message": str(e)}

@@ -3,8 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../constants.dart';
 import 'login_screen.dart';
-import 'course_attendance_screen.dart';
 import 'all_student_screen.dart';
+// 🚀 NAYI SCREEN IMPORT KI HAI
+import 'course_session_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final String teacherUsername;
@@ -34,7 +35,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         Uri.parse('$backendUrl/my-courses/${widget.teacherUsername}'),
       );
 
-      if (!mounted) return; // 🚀 CRASH FIX
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -66,11 +67,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         }),
       );
 
-      if (!mounted) return; // 🚀 CRASH FIX: API call ke baad check lagaya
+      if (!mounted) return;
 
       final data = jsonDecode(response.body);
       if (data['status'] == 'Success') {
-        await fetchCourses(); // 🚀 Wait for the list to refresh
+        await fetchCourses();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -112,9 +113,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             onPressed: () {
               if (courseController.text.isNotEmpty) {
                 Navigator.pop(context);
-                addCourse(
-                  courseController.text.trim(),
-                ); // 🚀 FIX: Extra space remove kar diya
+                addCourse(courseController.text.trim());
               }
             },
             child: Text("Create"),
@@ -131,7 +130,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         title: Text('My Courses'),
         backgroundColor: Colors.blueAccent,
         actions: [
-          // New button added to navigate to the Directory Screen
           IconButton(
             icon: Icon(Icons.people_alt, color: Colors.white),
             tooltip: 'All Students Directory',
@@ -142,8 +140,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               );
             },
           ),
-
-          // Your existing Logout button
           IconButton(
             icon: Icon(Icons.logout, color: Colors.white),
             tooltip: 'Logout',
@@ -160,7 +156,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       body: isLoading
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: fetchCourses, // 🚀 PULL TO REFRESH ADD KIYA
+              onRefresh: fetchCourses,
               color: Colors.blueAccent,
               child: courses.isEmpty
                   ? ListView(
@@ -179,8 +175,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       ],
                     )
                   : GridView.builder(
-                      physics:
-                          const AlwaysScrollableScrollPhysics(), // 🚀 Scrollable laazmi hai refresh ke liye
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.all(15),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
@@ -193,10 +188,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         String courseName = courses[index];
                         return GestureDetector(
                           onTap: () {
+                            // 🚀 YAHAN CHANGE KIYA HAI - Ab CourseSessionsScreen par jayega
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => CourseAttendanceScreen(
+                                builder: (context) => CourseSessionsScreen(
                                   courseName: courseName,
                                   teacherUsername: widget.teacherUsername,
                                 ),

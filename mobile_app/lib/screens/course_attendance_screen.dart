@@ -9,10 +9,12 @@ import 'dart:typed_data';
 class CourseAttendanceScreen extends StatefulWidget {
   final String courseName;
   final String teacherUsername;
+  final String date;
 
   CourseAttendanceScreen({
     required this.courseName,
     required this.teacherUsername,
+    required this.date,
   });
 
   @override
@@ -29,6 +31,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   List<dynamic> todayAttendanceList = [];
   bool isLoadingAttendance = true;
   String todayDate = "";
+  bool isScanning = false;
 
   @override
   void initState() {
@@ -469,23 +472,17 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   Future<void> markAttendance() async {
     final picker = ImagePicker();
 
+    final image = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 100,
+      maxWidth: 1920,
+    );
+    if (image == null) return;
+
+    // 🚀 LOADER ON: Scanning start hote hi
+    setState(() => isScanning = true);
+
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Opening camera for class photo...")),
-      );
-      final image = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 100,
-        maxWidth: 1920,
-      );
-      if (image == null) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Analyzing classroom image, please wait..."),
-        ),
-      );
-
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$backendUrl/detect-attendance/'),
@@ -498,6 +495,9 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       var data = jsonDecode(responseData);
 
       if (!mounted) return;
+
+      // 🚀 LOADER OFF: Response aate hi
+      setState(() => isScanning = false);
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
         List<dynamic> recognizedStudents = data['recognized_students'];
@@ -551,7 +551,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     TextButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        fetchTodayAttendance(); // 🚀 Refresh list
+                        fetchTodayAttendance();
                         markAttendance();
                       },
                       icon: const Icon(
@@ -569,7 +569,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                     ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        fetchTodayAttendance(); // 🚀 Refresh list when done
+                        fetchTodayAttendance();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
@@ -585,29 +585,23 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             ),
           );
         } else {
+          // No faces scenario
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
               icon: const Icon(Icons.error, color: Colors.red, size: 60),
               title: const Text(
                 "No Faces Recognized",
                 textAlign: TextAlign.center,
               ),
               content: const Text(
-                "The AI could not recognize any registered students in this photo.",
-                textAlign: TextAlign.center,
+                "The AI could not recognize any registered students.",
               ),
               actions: [
                 Center(
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      "Try Again",
-                      style: TextStyle(color: Colors.red),
-                    ),
+                    child: const Text("Try Again"),
                   ),
                 ),
               ],
@@ -623,6 +617,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
       }
     } catch (e) {
+      // 🚀 ERROR: Loader band karna mat bhoolna!
+      setState(() => isScanning = false);
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
@@ -880,6 +876,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   ),
           ],
         ),
+
         floatingActionButton: FloatingActionButton.extended(
           onPressed: showAddStudentDialog,
           icon: const Icon(Icons.add, color: Colors.white),
