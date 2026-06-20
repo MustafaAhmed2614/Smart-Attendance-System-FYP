@@ -398,6 +398,7 @@ def get_my_attendance(roll_number: str):
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # 1. Student ka naam nikalna
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
@@ -407,12 +408,36 @@ def get_my_attendance(roll_number: str):
             
         student_name = student[0]
 
+        # 🚀 FIX 1: Sirf wo courses nikalen jin mein yeh roll_number officially enrolled hai
         cursor.execute('''
+            SELECT TRIM(course_name) 
+            FROM enrollments 
+            WHERE roll_number = ?
+        ''', (roll_number,))
+        enrolled_courses = [row[0] for row in cursor.fetchall()]
+
+        # Agar bacha kisi bhi course mein enrolled nahi hai, toh empty list bhej dein
+        if not enrolled_courses:
+            conn.close()
+            return {
+                "status": "Success", 
+                "student_name": student_name,
+                "attendance_data": []
+            }
+
+        # 🚀 FIX 2: EXACT name match karein (=) aur sirf IN enrolled_courses ka data laayein
+        # Dynamic query string taake multi-course filter ho sakay
+        placeholders = ','.join(['?'] * len(enrolled_courses))
+        query = f'''
             SELECT status, timestamp, course_name 
             FROM attendance_logs 
-            WHERE student_name LIKE ? 
+            WHERE student_name = ? AND TRIM(course_name) IN ({placeholders}) 
             ORDER BY timestamp DESC
-        ''', (f"%{student_name}%",))
+        '''
+        
+        # Query run karne ke liye parameters (Name + Saare enrolled courses ki list)
+        params = [student_name] + enrolled_courses
+        cursor.execute(query, params)
         
         records = cursor.fetchall()
         conn.close()
@@ -422,8 +447,6 @@ def get_my_attendance(roll_number: str):
         for row in records:
             status = row[0]
             timestamp_str = row[1]
-            
-            # 🚀 MAIN FIX: .strip() lagaya hai taake "AI " aur "AI" merge ho kar ek ban jayein
             raw_course_name = row[2] if row[2] else "Unknown Course"
             course_name = raw_course_name.strip() 
             
@@ -454,8 +477,7 @@ def get_my_attendance(roll_number: str):
         
     except Exception as e:
         print(f"‼️ API ERROR: {str(e)}")
-        return {"status": "Error", "message": str(e)}# ==========================================
-
+        return {"status": "Error", "message": str(e)}
 # 1. Naya Course Banane ki API
 @app.post("/add-course/")
 def add_course(course: CourseCreate):

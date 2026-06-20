@@ -44,7 +44,9 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     setState(() => isLoadingPending = true);
     try {
       final response = await http.get(
-        Uri.parse('$backendUrl/pending-students/${widget.courseName}'),
+        Uri.parse(
+          '$backendUrl/pending-students/${Uri.encodeComponent(widget.courseName)}',
+        ),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -68,7 +70,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-          '$backendUrl/attendance-by-date/${widget.courseName}/${widget.date}',
+          '$backendUrl/attendance-by-date/${Uri.encodeComponent(widget.courseName)}/${widget.date}',
         ),
       );
       if (response.statusCode == 200) {

@@ -31,8 +31,9 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
   // Backend se Dates mangwane ka function
   Future<List<String>> fetchCourseSessions(String courseName) async {
     // 🚀 Ab hardcoded IP ke bajaye dynamic URL use hoga
-    final url = Uri.parse('$backendUrl/course-sessions/$courseName');
-
+    final url = Uri.parse(
+      '$backendUrl/course-sessions/${Uri.encodeComponent(courseName)}',
+    );
     try {
       print("Calling API: $url"); // Terminal mein print hoga
       final response = await http
