@@ -27,7 +27,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   List<dynamic> pendingStudents = [];
   bool isLoadingPending = true;
 
-  // 🚀 NAYE VARIABLES: Aaj ki attendance ke liye
   List<dynamic> todayAttendanceList = [];
   bool isLoadingAttendance = true;
   String todayDate = "";
@@ -40,9 +39,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     fetchTodayAttendance(); // 🚀 Screen khulte hi aaj ki attendance layega
   }
 
-  // ==========================================
   // API: Get Pending Students
-  // ==========================================
   Future<void> fetchPendingStudents() async {
     setState(() => isLoadingPending = true);
     try {
@@ -64,16 +61,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // ==========================================
-  // 🚀 API: Get Today's Attendance List
-  // ==========================================
-  // ==========================================
-  // 🚀 API: Get Specific Date's Attendance List
-  // ==========================================
+  // API: Get Specific Date's Attendance List
+
   Future<void> fetchTodayAttendance() async {
     setState(() => isLoadingAttendance = true);
     try {
-      // 🚀 FIX: Yahan 'daily-attendance' ki jagah specific date wali API lagayi hai
       final response = await http.get(
         Uri.parse(
           '$backendUrl/attendance-by-date/${widget.courseName}/${widget.date}',
@@ -95,9 +87,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // ==========================================
   // API: Manual Toggle Attendance
-  // ==========================================
+
   Future<void> toggleManualAttendance(
     String rollNumber,
     String currentStatus,
@@ -143,9 +134,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // ==========================================
   // API: Add Student
-  // ==========================================
+
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,9 +244,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     );
   }
 
-  // ==========================================
   // WIDGET HELPER: Face Tile
-  // ==========================================
   Widget _buildFaceTile(String title, File? image, VoidCallback onTap) {
     return ListTile(
       tileColor: Colors.grey[100],
@@ -277,9 +265,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     );
   }
 
-  // ==========================================
   // UI: Registration Dialog (5 Images)
-  // ==========================================
   void showRegistrationDialog(
     BuildContext context,
     String studentName,
@@ -471,9 +457,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // ==========================================
   // API: Mark Daily Attendance
-  // ==========================================
   Future<void> markAttendance() async {
     final picker = ImagePicker();
 
@@ -501,7 +485,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
       if (!mounted) return;
 
-      // 🚀 LOADER OFF: Response aate hi
       setState(() => isScanning = false);
 
       if (response.statusCode == 200 && data['status'] == 'Success') {
@@ -622,7 +605,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         );
       }
     } catch (e) {
-      // 🚀 ERROR: Loader band karna mat bhoolna!
       setState(() => isScanning = false);
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -652,9 +634,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         ),
         body: TabBarView(
           children: [
-            // ==========================================
-            // TAB 1: 🚀 NAYA DESIGN (ATTENDANCE LIST + BUTTON)
-            // ==========================================
             Column(
               children: [
                 // Scan Button at the top
@@ -831,9 +810,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               ],
             ),
 
-            // ==========================================
-            // TAB 2: PENDING REGISTRATIONS
-            // ==========================================
             isLoadingPending
                 ? const Center(child: CircularProgressIndicator())
                 : pendingStudents.isEmpty
