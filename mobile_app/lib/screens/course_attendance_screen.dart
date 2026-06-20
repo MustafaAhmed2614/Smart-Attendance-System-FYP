@@ -67,11 +67,17 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   // ==========================================
   // 🚀 API: Get Today's Attendance List
   // ==========================================
+  // ==========================================
+  // 🚀 API: Get Specific Date's Attendance List
+  // ==========================================
   Future<void> fetchTodayAttendance() async {
     setState(() => isLoadingAttendance = true);
     try {
+      // 🚀 FIX: Yahan 'daily-attendance' ki jagah specific date wali API lagayi hai
       final response = await http.get(
-        Uri.parse('$backendUrl/daily-attendance/${widget.courseName}'),
+        Uri.parse(
+          '$backendUrl/attendance-by-date/${widget.courseName}/${widget.date}',
+        ),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -84,7 +90,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
         }
       }
     } catch (e) {
-      print("Error fetching today attendance: $e");
+      print("Error fetching attendance: $e");
       setState(() => isLoadingAttendance = false);
     }
   }
@@ -96,10 +102,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     String rollNumber,
     String currentStatus,
   ) async {
-    // Agar present hai toh absent kar do, warna present kar do
     String newStatus = currentStatus == "Present" ? "Absent" : "Present";
 
-    // 🚀 Optimistic UI Update: Screen par foran status change kar do taake teacher ko wait na karna pare
     setState(() {
       for (var student in todayAttendanceList) {
         if (student['roll_number'] == rollNumber) {
@@ -116,6 +120,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           "roll_number": rollNumber,
           "course_name": widget.courseName,
           "status": newStatus,
+          "date": widget.date, // 🚀 MAIN FIX: Specific date backend ko bhej di
         }),
       );
 
@@ -130,11 +135,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             ),
           );
         } else {
-          fetchTodayAttendance(); // Error ho toh wapas purana status le aao
+          fetchTodayAttendance();
         }
       }
     } catch (e) {
-      fetchTodayAttendance(); // Internet error par revert kar do
+      fetchTodayAttendance();
     }
   }
 

@@ -599,30 +599,31 @@ async def toggle_manual_attendance(data: dict):
     try:
         roll_number = data.get("roll_number")
         course_name = data.get("course_name").strip()
-        new_status = data.get("status") # Ya toh "Present" aayega ya "Absent"
+        new_status = data.get("status") 
         
-        today_date = datetime.now().strftime("%Y-%m-%d")
+        # 🚀 MAIN FIX: Ab hum 'date' frontend se mangwayenge. Agar nahi aayegi toh aaj ki date use hogi.
+        today_date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
         time_now = datetime.now().strftime("%H:%M:%S")
         
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        cursor.execute("SELECT id FROM attendance WHERE roll_number = 'SYSTEM' AND TRIM(course_name) = ? AND date = ?", (course_name, today_date))
+        if not cursor.fetchone():
+            cursor.execute("INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", ('SYSTEM', course_name, today_date, time_now))
         
-        # Log mein save karne ke liye student ka naam nikal rahe hain
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         student_name = student["name"] if student else "Unknown"
 
         if new_status == "Present":
-            # 1. Check karein ke pehle se toh present nahi
             cursor.execute("SELECT id FROM attendance WHERE roll_number = ? AND TRIM(course_name) = ? AND date = ?", (roll_number, course_name, today_date))
             if not cursor.fetchone():
                 cursor.execute("INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", (roll_number, course_name, today_date, time_now))
         else:
-            # 2. Agar Absent kiya hai, toh attendance table se aaj ki entry delete kar dein
             cursor.execute("DELETE FROM attendance WHERE roll_number = ? AND TRIM(course_name) = ? AND date = ?", (roll_number, course_name, today_date))
         
-        # 3. History maintain karne ke liye logs mein zaroor save karein
-        cursor.execute("INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", (student_name, f"Manual {new_status}", course_name))
+        cursor.execute("INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", (student_name, f"Manual {new_status} (Date: {today_date})", course_name))
         
         conn.commit()
         conn.close()
@@ -630,8 +631,7 @@ async def toggle_manual_attendance(data: dict):
         
     except Exception as e:
         print(f"‼️ Error toggling manual attendance: {e}")
-        return {"status": "Error", "message": str(e)}
-    
+        return {"status": "Error", "message": str(e)}    
 @app.get("/teacher-courses/{username}")
 def get_teacher_courses(username: str):
     try:
