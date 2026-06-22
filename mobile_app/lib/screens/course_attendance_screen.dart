@@ -644,15 +644,29 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                   width: double.infinity,
                   color: Colors.blue[50],
                   child: ElevatedButton.icon(
-                    onPressed: markAttendance,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text(
-                      "Scan Class for Attendance",
-                      style: TextStyle(fontSize: 16),
+                    onPressed: isScanning ? null : markAttendance,
+                    icon: isScanning
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.camera_alt),
+                    label: Text(
+                      isScanning
+                          ? "Scanning Faces... Please wait"
+                          : "Scan Class for Attendance",
+                      style: const TextStyle(fontSize: 16),
                     ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 15),
-                      backgroundColor: Colors.blueAccent,
+                      // Scan hote waqt button grey ho jayega
+                      backgroundColor: isScanning
+                          ? Colors.grey
+                          : Colors.blueAccent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
