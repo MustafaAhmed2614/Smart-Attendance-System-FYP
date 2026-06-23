@@ -5,11 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/attendance_model.dart';
 
 class ApiService {
-  // Demo se pehle terminal mein 'ipconfig getifaddr en0' karke IP check lazmi karein
   final String baseUrl = "http://192.168.0.199:8000";
-
-  // Attendance Mark karne ka function (Optimized for RetinaFace)
-  // markAttendance function ko update karein
 
   Future<AttendanceResponse> markAttendance(File imageFile) async {
     try {
@@ -22,10 +18,8 @@ class ApiService {
         await http.MultipartFile.fromPath('file', imageFile.path),
       );
 
-      // ⏳ Timeout ko 2 minutes (120 seconds) kar diya hai
-      // Kyunke Facenet512 aur RetinaFace heavy scanning karte hain
       var streamedResponse = await request.send().timeout(
-        const Duration(minutes: 2), // 👈 60 seconds se barha kar 2 minutes
+        const Duration(minutes: 2),
       );
 
       var responseData = await streamedResponse.stream.bytesToString();
@@ -37,7 +31,6 @@ class ApiService {
         throw Exception(errorData['message'] ?? "Server Error");
       }
     } on TimeoutException {
-      // 📢 User ke liye behtar error message
       throw Exception(
         "Scan mein boht waqt lag raha hai. Aapka server heavy processing kar raha hai, thori dair baad dobara koshish karein.",
       );
@@ -50,7 +43,6 @@ class ApiService {
     }
   }
 
-  // Naya Student Register karne ka function
   Future<bool> registerStudent({
     required String name,
     required String rollNo,
@@ -59,17 +51,13 @@ class ApiService {
     required File rightImage,
   }) async {
     try {
-      var uri = Uri.parse(
-        '$baseUrl/register',
-      ); // Apne backend ke endpoint ka naam check kar lein
+      var uri = Uri.parse('$baseUrl/register');
       var request = http.MultipartRequest('POST', uri);
 
       // 1. Text Data add karein
       request.fields['name'] = name;
-      request.fields['roll_number'] =
-          rollNo; // Python API mein jo naam rakha hai wo likhein
+      request.fields['roll_number'] = rollNo;
 
-      // 2. Teeno Tasveerein (Files) add karein
       request.files.add(
         await http.MultipartFile.fromPath('front_image', frontImage.path),
       );
@@ -79,8 +67,6 @@ class ApiService {
       request.files.add(
         await http.MultipartFile.fromPath('right_image', rightImage.path),
       );
-
-      // 3. Request Server ko bhej dein
       var response = await request.send();
 
       if (response.statusCode == 200) {

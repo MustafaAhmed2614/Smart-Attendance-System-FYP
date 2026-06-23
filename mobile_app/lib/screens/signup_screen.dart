@@ -9,19 +9,13 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  // 1. Form ko validate karne ke liye key
   final _formKey = GlobalKey<FormState>();
-
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   String selectedRole = 'student';
   bool isLoading = false;
-
-  // 2. Password chupane ya dikhane ke liye
   bool _isObscure = true;
-
-  // 3. Strong Password check karne ka formula (Regex)
   bool _isPasswordStrong(String password) {
     final RegExp passwordRegex = RegExp(
       r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#\$&*~]).{8,}$',
@@ -30,9 +24,8 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> signupUser() async {
-    // 4. Sab se pehle check karein ke kya form ke saare rules follow hue hain?
     if (!_formKey.currentState!.validate()) {
-      return; // Agar error hai toh API call mat karo
+      return; 
     }
 
     setState(() {
@@ -59,7 +52,7 @@ class _SignupScreenState extends State<SignupScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Wapas Login par le jayega
+        Navigator.pop(context); 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(data['message']), backgroundColor: Colors.red),
@@ -100,7 +93,6 @@ class _SignupScreenState extends State<SignupScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Form(
-            // FORM WIDGET ADD KIYA HAI
             key: _formKey,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -139,13 +131,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   },
                 ),
                 const SizedBox(height: 15),
-
-                // PASSWORD FIELD (WITH STRONG VALIDATION & EYE ICON)
                 TextFormField(
                   controller: passwordController,
                   obscureText: _isObscure,
                   autovalidateMode: AutovalidateMode
-                      .onUserInteraction, // Type karte waqt error dikhaye
+                      .onUserInteraction, 
                   decoration: InputDecoration(
                     labelText: 'Password',
                     prefixIcon: const Icon(Icons.lock_outline),

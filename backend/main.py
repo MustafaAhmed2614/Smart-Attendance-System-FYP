@@ -7,8 +7,8 @@ import traceback
 from fastapi import Response
 import csv                   
 import io      
-import cv2        # <--- Yeh import top par hona chahiye
-import base64     # <--- Yeh import top par hona chahiye
+import cv2        
+import base64     
 import numpy as np
 from datetime import datetime              
 # Clean Architecture imports
@@ -34,21 +34,21 @@ class CourseCreate(BaseModel):
 
 
 
-# System Start-up setup
+
 init_db()
 if not os.path.exists("./students_pics"):
     os.makedirs("./students_pics")
 
 
 
-# Bcrypt ka setup
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# 1. Naya password hash karne ka function (Signup ke liye)
+
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-# 2. Password check karne ka function (Login ke liye)
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 @app.get("/")
@@ -56,7 +56,7 @@ def read_root():
     return {"message": "FYP Smart Attendance API is Live! (Clean Architecture)"}
 
 # 1. REGISTER STUDENT (Hybrid Flow Updated)
-import os # Upar top par check kar lena ke yeh import hai ya nahi
+import os 
 
 @app.post("/register")
 async def register_student(
@@ -71,11 +71,7 @@ async def register_student(
 ):
     try:
         print(f"\n--- 📥 NEW FACE REGISTRATION: {name} ({roll_number}) ---")
-        
-        # 🚀 YEH LINE MISSING THI: Yeh line khud check karegi aur folder bana degi!
         os.makedirs("./students_pics", exist_ok=True)
-        
-        # 1. Tasweerein Save Karna
         files_to_save = {
             f"{name}_{roll_number}_front.jpg": front_image,
             f"{name}_{roll_number}_left.jpg": left_image,
@@ -91,13 +87,12 @@ async def register_student(
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file_obj.file, buffer)
             
-        # 2. Purane AI models (PKL) delete karna taake naye faces add ho sakein
         print("🗑️ Deleting old PKL cache so AI learns new faces...")
         for f in os.listdir("./students_pics"):
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
                 
-        # 3. Database mein status 'Pending' se 'Registered' karna
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -114,25 +109,21 @@ async def register_student(
         print("\n‼️ ‼️ REGISTRATION ERROR ‼️ ‼️")
         traceback.print_exc() 
         return {"status": "Error", "message": str(e)}
-# 2. DETECT ATTENDANCE
 
+# 2. DETECT ATTENDANCE
 ATTENDANCE_IMG_DIR = "attendance_photos"
 os.makedirs(ATTENDANCE_IMG_DIR, exist_ok=True)
 
 @app.post("/detect-attendance/")
 async def detect_attendance(
     file: UploadFile = File(...), 
-    course_name: str = Form(...) # Removed default "AI" to ensure it uses the exact flutter value
+    course_name: str = Form(...)
 ):
-    # 🚀 FIX 1: Remove extra spaces from course name
     clean_course_name = course_name.strip()
-    
     current_time = datetime.now()
     timestamp = current_time.strftime("%Y-%m-%d_%H-%M-%S")
     today_date = current_time.strftime("%Y-%m-%d")
     time_now = current_time.strftime("%H:%M:%S")
-    
-    # Naya File Path
     filename = f"{clean_course_name}_{timestamp}.jpg"
     file_path = os.path.join(ATTENDANCE_IMG_DIR, filename) 
     
@@ -140,8 +131,6 @@ async def detect_attendance(
         # Save image permanently
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-
-        # AI Engine logic returns list of names (e.g., ["Mustafa", "Ali"])
         final_names = recognize_faces(file_path)
 
         img_base64 = None 
@@ -149,13 +138,9 @@ async def detect_attendance(
         if final_names:
             conn = get_db_connection()
             cursor = conn.cursor()
-            
-            # List to store only those names who are actually in the class
             valid_students_marked = []
             
             for name in final_names:
-                # 🚀 SMART FIX: SQL JOIN lagaya hai! 
-                # Check karo ke bacha mojood hai AND is course mein enrolled hai
                 cursor.execute('''
                     SELECT s.roll_number 
                     FROM students s
@@ -167,9 +152,7 @@ async def detect_attendance(
                 
                 if student_row:
                     roll_no = student_row["roll_number"]
-                    valid_students_marked.append(name) # Valid student mil gaya
-                    
-                    # Duplicate check
+                    valid_students_marked.append(name) 
                     cursor.execute('''
                         SELECT id FROM attendance 
                         WHERE roll_number = ? AND TRIM(course_name) = ? AND date = ?
@@ -178,19 +161,17 @@ async def detect_attendance(
                     exists = cursor.fetchone()
                     
                     if not exists:
-                        # Mark in Daily Attendance
                         cursor.execute(
                             "INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", 
                             (roll_no, clean_course_name, today_date, time_now)
                         )
-                        # Save in Logs
+                        
                         cursor.execute(
                             "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
                             (name, "Present", clean_course_name)
                         )
                         print(f"✅ Marked {name} ({roll_no}) in {clean_course_name}")
                 else:
-                    # 🚀 Agar bacha kisi aur course ka hai, toh ignore kar do
                     print(f"⚠️ Ignored '{name}': Recognized by AI but NOT enrolled in {clean_course_name}")
 
             conn.commit()
@@ -199,8 +180,6 @@ async def detect_attendance(
             # --- Image processing (Drawing names) ---
             image = cv2.imread(file_path)
             y_position = 30
-            
-            # 🚀 FIX 1: Tasweer par sirf unke naam likho jo waqai is course mein hain
             for name in valid_students_marked:
                 cv2.putText(image, f"Identified: {name}", (20, y_position), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
                 y_position += 30 
@@ -208,8 +187,6 @@ async def detect_attendance(
             _, buffer = cv2.imencode('.jpg', image)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
 
-        # 🚀 FIX 2: Flutter App ko sirf 'valid_students_marked' ki list bhejo
-        # Agar final_names empty hai (kuch detect nahi hua), toh empty list bhejo
         return_list = valid_students_marked if final_names else []
 
         return {
@@ -224,6 +201,7 @@ async def detect_attendance(
             os.remove(file_path)
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "recognized_students": [], "message": str(e)}    
+ 
     # 3. VIEW LOGS
 @app.get("/view-attendance/")
 def view_attendance():
@@ -237,17 +215,15 @@ def view_attendance():
 @app.get("/daily-attendance/{course_name}")
 async def get_daily_attendance(course_name: str):
     try:
-        # Python level extra space removal
+        
         clean_course = course_name.strip()
         print(f"\n📊 Fetching attendance list for: '{clean_course}'")
         
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Aaj ki date
-        today = datetime.now().strftime("%Y-%m-%d")
         
-        # 1. Fetch enrolled students (using TRIM to ignore database spaces)
+        today = datetime.now().strftime("%Y-%m-%d")
         cursor.execute('''
             SELECT s.name, s.roll_number 
             FROM students s
@@ -286,6 +262,7 @@ async def get_daily_attendance(course_name: str):
     except Exception as e:
         print(f"‼️ Error fetching daily attendance: {e}")
         return {"status": "Error", "message": str(e)}
+    
 # 4. EXPORT ATTENDANCE TO EXCEL (CSV)
 @app.get("/export-attendance/")
 def export_attendance():
@@ -297,18 +274,18 @@ def export_attendance():
         logs = cursor.fetchall()
         conn.close()
 
-        # 2. Memory mein ek CSV file banana
+        
         stream = io.StringIO()
         writer = csv.writer(stream)
 
-        # 3. Excel Sheet ke Columns ke naam likhna (Headers)
+        
         writer.writerow(["Student Name", "Status", "Time"])
 
-        # 4. Database ka saara data Excel sheet mein likhna
+       
         for row in logs:
             writer.writerow(row)
 
-        # 5. File ko download ke liye bhejna
+        
         response = Response(content=stream.getvalue(), media_type="text/csv")
         response.headers["Content-Disposition"] = "attachment; filename=Attendance_Report.csv"
         
@@ -331,27 +308,24 @@ def clear_attendance():
     except Exception as e:
         return {"status": "Error", "message": str(e)}
     
-# ==========================================
-# 🔐 AUTHENTICATION & STUDENT APIs
-# ==========================================
 
-# 6. SIGNUP API (Naya Account Banane ke liye)
+# AUTHENTICATION & STUDENT APIs
+
+
+# 6. SIGNUP API 
 @app.post("/signup/")
-async def signup(user: dict): # (Aapne pydantic model use kiya ho toh woh lagayen)
+async def signup(user: dict): 
     username = user.get("username")
     raw_password = user.get("password")
     role = user.get("role")
-    
-    # 🚀 Yahan hum plain password ko hash mein convert kar rahe hain
     hashed_password = get_password_hash(raw_password)
     
-    # Ab is hashed_password ko database mein INSERT karein (plain ko nahi!)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
             "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
-            (username, hashed_password, role) # Yahan hashed bhej rahe hain
+            (username, hashed_password, role) 
         )
         conn.commit()
         return {"status": "Success", "message": "Account created securely!"}
@@ -359,7 +333,7 @@ async def signup(user: dict): # (Aapne pydantic model use kiya ho toh woh lagaye
         return {"status": "Error", "message": "Username already exists!"}
     finally:
         conn.close()
-# 7. LOGIN API (Account Check karne ke liye)
+# 7. LOGIN API 
 @app.post("/login/")
 async def login(user: dict):
     username = user.get("username")
@@ -368,19 +342,16 @@ async def login(user: dict):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Pura user data mangwayen
+    
     cursor.execute("SELECT password, role FROM users WHERE username = ?", (username,))
     db_user = cursor.fetchone()
     conn.close()
 
-    # Agar user nahi mila
     if not db_user:
         return {"status": "Error", "message": "User not found!"}
 
     db_hashed_password = db_user["password"]
     db_role = db_user["role"]
-
-    # 🚀 Yahan checking ho rahi hai! (True ya False aayega)
     is_password_correct = verify_password(raw_password, db_hashed_password)
 
     if not is_password_correct:
@@ -390,15 +361,13 @@ async def login(user: dict):
         return {"status": "Error", "message": "Incorrect role selected!"}
 
     return {"status": "Success", "message": "Login successful!"}
-# 8. STUDENT ATTENDANCE API (Sirf apni attendance dekhne ke liye)
-# 8. STUDENT ATTENDANCE API (Updated for Debugging)
+# 8. STUDENT ATTENDANCE API 
+# 8. STUDENT ATTENDANCE API 
 @app.get("/my-attendance/{roll_number}")
 def get_my_attendance(roll_number: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # 1. Student ka naam nikalna
         cursor.execute("SELECT name FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
@@ -407,8 +376,6 @@ def get_my_attendance(roll_number: str):
             return {"status": "Error", "message": "Student not found!"}
             
         student_name = student[0]
-
-        # 🚀 FIX 1: Sirf wo courses nikalen jin mein yeh roll_number officially enrolled hai
         cursor.execute('''
             SELECT TRIM(course_name) 
             FROM enrollments 
@@ -416,7 +383,6 @@ def get_my_attendance(roll_number: str):
         ''', (roll_number,))
         enrolled_courses = [row[0] for row in cursor.fetchall()]
 
-        # Agar bacha kisi bhi course mein enrolled nahi hai, toh empty list bhej dein
         if not enrolled_courses:
             conn.close()
             return {
@@ -425,8 +391,6 @@ def get_my_attendance(roll_number: str):
                 "attendance_data": []
             }
 
-        # 🚀 FIX 2: EXACT name match karein (=) aur sirf IN enrolled_courses ka data laayein
-        # Dynamic query string taake multi-course filter ho sakay
         placeholders = ','.join(['?'] * len(enrolled_courses))
         query = f'''
             SELECT status, timestamp, course_name 
@@ -435,7 +399,6 @@ def get_my_attendance(roll_number: str):
             ORDER BY timestamp DESC
         '''
         
-        # Query run karne ke liye parameters (Name + Saare enrolled courses ki list)
         params = [student_name] + enrolled_courses
         cursor.execute(query, params)
         
@@ -478,14 +441,12 @@ def get_my_attendance(roll_number: str):
     except Exception as e:
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "message": str(e)}
-# 1. Naya Course Banane ki API
+# New course
 @app.post("/add-course/")
 def add_course(course: CourseCreate):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Course ko database mein save kar rahe hain
         cursor.execute(
             "INSERT INTO courses (course_name, teacher_username) VALUES (?, ?)",
             (course.course_name, course.teacher_username)
@@ -498,14 +459,14 @@ def add_course(course: CourseCreate):
         return {"status": "Error", "message": str(e)}
 
 
-# 2. Teacher ke apne Courses mangwane ki API
+#Teacher courses
 @app.get("/my-courses/{teacher_username}")
 def get_my_courses(teacher_username: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Sirf us teacher ke courses nikalo jo login hai
+        
         cursor.execute(
             "SELECT course_name FROM courses WHERE teacher_username = ?", 
             (teacher_username,)
@@ -513,7 +474,7 @@ def get_my_courses(teacher_username: str):
         courses = cursor.fetchall()
         conn.close()
         
-        # Database se nikal kar ek saaf list banayen
+       
         course_list = []
         for row in courses:
             name = row["course_name"] if isinstance(row, sqlite3.Row) else row[0]
@@ -523,11 +484,8 @@ def get_my_courses(teacher_username: str):
     except Exception as e:
         return {"status": "Error", "message": str(e)}
     
-# ==========================================
-# 🚀 ADMIN API (Hybrid Flow)
-# ==========================================
 
-# Data aane ka format
+# ADMIN API (Hybrid Flow)
 class AdminStudentCreate(BaseModel):
     name: str
     roll_number: str
@@ -585,14 +543,13 @@ def admin_add_student(student: AdminStudentCreate):
         print(f"API ERROR in admin_add_student: {str(e)}")
         return {"status": "Error", "message": str(e)}    
 
-# 3. Pending Students ki list mangwane ki API
+# List of Pending students
 @app.get("/pending-students/{course_name}")
 def get_pending_students(course_name: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Enrollments aur Students table ko join kar ke 'Pending' bachon ka data nikalna
         cursor.execute('''
             SELECT s.name, s.roll_number 
             FROM students s
@@ -602,8 +559,6 @@ def get_pending_students(course_name: str):
         
         pending_students = cursor.fetchall()
         conn.close()
-        
-        # List ban banana taake Flutter ko asani se samajh aaye
         student_list = []
         for row in pending_students:
             student_list.append({
@@ -623,7 +578,7 @@ async def toggle_manual_attendance(data: dict):
         course_name = data.get("course_name").strip()
         new_status = data.get("status") 
         
-        # 🚀 MAIN FIX: Ab hum 'date' frontend se mangwayenge. Agar nahi aayegi toh aaj ki date use hogi.
+        
         today_date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
         time_now = datetime.now().strftime("%H:%M:%S")
         
@@ -659,8 +614,6 @@ def get_teacher_courses(username: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # 🚀 TRIM use karein taake extra spaces filter mein masla na karein
         cursor.execute("SELECT course_name FROM courses WHERE TRIM(teacher_username) = ?", (username.strip(),))
         courses = [row["course_name"] for row in cursor.fetchall()]
         
@@ -674,9 +627,6 @@ def get_all_students_info():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        # Fetch all students, their enrolled courses, and the respective teachers
-        # using LEFT JOIN so even students without courses show up
         cursor.execute('''
             SELECT s.name, s.roll_number, s.face_status, e.course_name, c.teacher_username
             FROM students s
@@ -688,7 +638,7 @@ def get_all_students_info():
         rows = cursor.fetchall()
         conn.close()
 
-        # Group the fetched data by student roll number
+        
         grouped_data = {}
         for row in rows:
             roll = row["roll_number"]
@@ -719,18 +669,16 @@ def get_all_students_info():
         print(f"API ERROR in get_all_students_info: {str(e)}")
         return {"status": "Error", "message": str(e)}
     
-# ==========================================
-# 🕒 TEACHER HISTORY APIs (Date & Time Filter)
-# ==========================================
 
-# 1. API: Kisi specific course ki saari Dates/Sessions mangwane ke liye
+# TEACHER HISTORY APIs (Date & Time Filter)
+
+
+#course session
 @app.get("/course-sessions/{course_name}")
 def get_course_sessions(course_name: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # DISTINCT use kiya hai taake ek date list mein bar bar repeat na ho
         cursor.execute('''
             SELECT DISTINCT date 
             FROM attendance 
@@ -746,15 +694,12 @@ def get_course_sessions(course_name: str):
         print(f"‼️ API ERROR in get_course_sessions: {str(e)}")
         return {"status": "Error", "message": str(e)}
 
-# 2. API: Kisi bhi purani Date (Session) ki Attendance Details dekhne ke liye
 @app.get("/attendance-by-date/{course_name}/{target_date}")
 def get_attendance_by_date(course_name: str, target_date: str):
     try:
         clean_course = course_name.strip()
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Step A: Us course ke saare registered bachon ki list nikalein
         cursor.execute('''
             SELECT s.name, s.roll_number 
             FROM students s
@@ -762,8 +707,6 @@ def get_attendance_by_date(course_name: str, target_date: str):
             WHERE TRIM(e.course_name) = ? AND s.face_status = 'Registered'
         ''', (clean_course,))
         all_students = cursor.fetchall()
-        
-        # Step B: Us specific date par jo bachay present thay, unke roll numbers nikalein
         cursor.execute('''
             SELECT roll_number FROM attendance 
             WHERE TRIM(course_name) = ? AND date = ?
@@ -771,8 +714,6 @@ def get_attendance_by_date(course_name: str, target_date: str):
         
         present_rolls = [row["roll_number"] for row in cursor.fetchall()]
         conn.close()
-        
-        # Step C: Match karke ek complete Final List tayar karein
         attendance_list = []
         for student in all_students:
             status = "Present" if student["roll_number"] in present_rolls else "Absent"

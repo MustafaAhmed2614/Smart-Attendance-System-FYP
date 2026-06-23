@@ -4,7 +4,6 @@ try:
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Yeh command database se saare purane users delete kar degi
     cursor.execute("DELETE FROM users")
     conn.commit()
     conn.close()

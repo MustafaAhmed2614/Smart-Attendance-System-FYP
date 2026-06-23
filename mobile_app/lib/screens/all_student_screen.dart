@@ -81,7 +81,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                         var student = studentsList[index];
                         List enrollments = student['enrollments'];
 
-                        // Extract face status
+                        
                         String faceStatus = student['face_status'] ?? 'Pending';
                         // Determine color based on status
                         bool isPending = faceStatus.toLowerCase() == 'pending';
@@ -109,7 +109,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                                 fontSize: 16,
                               ),
                             ),
-                            // Updated subtitle to show both Roll Number and Face Status
+                            
                             subtitle: Padding(
                               padding: const EdgeInsets.only(top: 5.0),
                               child: Column(
@@ -144,7 +144,7 @@ class _AllStudentsScreenState extends State<AllStudentsScreen> {
                               ),
                             ),
 
-                            // Nested list showing courses and respective teachers
+                            
                             children: [
                               const Divider(),
                               enrollments.isEmpty

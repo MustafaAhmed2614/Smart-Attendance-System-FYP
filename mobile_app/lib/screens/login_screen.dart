@@ -16,8 +16,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   bool isLoading = false;
-
-  // 🚀 NAYA VARIABLE: Password chupane ya dikhane ke liye
   bool _isObscure = true;
 
   String selectedRole = 'student';
@@ -107,13 +105,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // App Logo
-              // Purana Icon code hata kar yeh laga dein:
               Image.asset(
-                'assets/login_icon.png', // Aapki file ka path
-                width: 400, // Icon ke size ke barabar width
-                height: 250, // Icon ke size ke barabar height
-                fit: BoxFit.contain, // Yeh ensure karega ke image kharab na ho
+                'assets/login_icon.png',
+                width: 400,
+                height: 250,
+                fit: BoxFit.contain,
               ),
               // const SizedBox(height: 10),
               // const Text(
@@ -204,11 +200,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-
-              // 🚀 UPDATED: Password Field with Show/Hide Toggle
               TextField(
                 controller: passwordController,
-                obscureText: _isObscure, // True = Hidden, False = Visible
+                obscureText: _isObscure,
                 decoration: InputDecoration(
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
@@ -220,7 +214,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.grey,
                     ),
                     onPressed: () {
-                      // Button dabane par state change hogi
                       setState(() {
                         _isObscure = !_isObscure;
                       });

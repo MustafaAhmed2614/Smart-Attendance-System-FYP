@@ -36,7 +36,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   void initState() {
     super.initState();
     fetchPendingStudents();
-    fetchTodayAttendance(); // 🚀 Screen khulte hi aaj ki attendance layega
+    fetchTodayAttendance(); 
   }
 
   // API: Get Pending Students
@@ -63,8 +63,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // API: Get Specific Date's Attendance List
-
   Future<void> fetchTodayAttendance() async {
     setState(() => isLoadingAttendance = true);
     try {
@@ -88,9 +86,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       setState(() => isLoadingAttendance = false);
     }
   }
-
   // API: Manual Toggle Attendance
-
   Future<void> toggleManualAttendance(
     String rollNumber,
     String currentStatus,
@@ -113,7 +109,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           "roll_number": rollNumber,
           "course_name": widget.courseName,
           "status": newStatus,
-          "date": widget.date, // 🚀 MAIN FIX: Specific date backend ko bhej di
+          "date": widget.date, 
         }),
       );
 
@@ -137,7 +133,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   }
 
   // API: Add Student
-
   Future<void> addStudentToDatabase(String name, String rollNo) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -266,8 +261,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       onTap: onTap,
     );
   }
-
-  // UI: Registration Dialog (5 Images)
   void showRegistrationDialog(
     BuildContext context,
     String studentName,
@@ -391,10 +384,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       },
     );
   }
-
-  // ==========================================
-  // API: Upload 5 Faces
-  // ==========================================
   Future<void> uploadFacesToAPI(
     String studentName,
     String rollNumber,
@@ -439,7 +428,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           ),
         );
         fetchPendingStudents();
-        fetchTodayAttendance(); // 🚀 Refresh list after registration
+        fetchTodayAttendance(); 
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -470,7 +459,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     );
     if (image == null) return;
 
-    // 🚀 LOADER ON: Scanning start hote hi
     setState(() => isScanning = true);
 
     try {
@@ -575,7 +563,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             ),
           );
         } else {
-          // No faces scenario
+          
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -768,7 +756,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 ),
                                 trailing: GestureDetector(
                                   onTap: () {
-                                    // 🚀 Jab is label par click hoga toh toggle function call hoga
+                                    
                                     toggleManualAttendance(
                                       student['roll_number'],
                                       student['status'],
@@ -831,7 +819,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 : pendingStudents.isEmpty
                 ? const Center(
                     child: Text(
-                      "No pending registrations! 🎉",
+                      "No pending registrations!",
                       style: TextStyle(fontSize: 18, color: Colors.green),
                     ),
                   )

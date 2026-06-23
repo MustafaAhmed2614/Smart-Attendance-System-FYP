@@ -4,7 +4,6 @@ import 'dart:convert';
 import '../constants.dart';
 import 'login_screen.dart';
 import 'all_student_screen.dart';
-// 🚀 NAYI SCREEN IMPORT KI HAI
 import 'course_session_screen.dart';
 
 class TeacherDashboard extends StatefulWidget {
@@ -27,7 +26,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     fetchCourses();
   }
 
-  // 1. Backend se Courses mangwane ka function
   Future<void> fetchCourses() async {
     setState(() => isLoading = true);
     try {
@@ -55,7 +53,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
-  // 2. Naya Course Add karne ka function
   Future<void> addCourse(String courseName) async {
     try {
       final response = await http.post(
@@ -93,7 +90,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
-  // 3. Add Course ka Pop-up Dialog
   void showAddCourseDialog() {
     TextEditingController courseController = TextEditingController();
     showDialog(
@@ -188,7 +184,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         String courseName = courses[index];
                         return GestureDetector(
                           onTap: () {
-                            // 🚀 YAHAN CHANGE KIYA HAI - Ab CourseSessionsScreen par jayega
+                            
                             Navigator.push(
                               context,
                               MaterialPageRoute(

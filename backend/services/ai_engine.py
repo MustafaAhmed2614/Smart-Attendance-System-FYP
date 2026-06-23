@@ -10,12 +10,12 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
     print(f"🔍 SCANNING WITH {ACTIVE_AI_MODEL}...")
     
     try:
-        # 🚀 CHANGE 1: enforce_detection ko True kar diya
+        
         results = DeepFace.find(
             img_path=image_path,
             db_path=db_path,
             model_name=ACTIVE_AI_MODEL, 
-            enforce_detection=True,    # 👈 Yeh Table/Deewar ko reject karega
+            enforce_detection=True,    
             detector_backend=ACTIVE_DETECTOR, 
             align=True,
             normalization='ArcFace'
@@ -41,7 +41,6 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
                 print(f"❓ Face {i+1}: No match found in database.")
 
     except ValueError:
-        # 🚀 CHANGE 2: Agar Table ki photo li, toh code crash nahi hoga, yahan aayega
         print("‼️ ALERT: No human face detected! (Ignored background/table)")
     except Exception as e:
         print(f"‼️ ERROR in Face Recognition: {str(e)}")

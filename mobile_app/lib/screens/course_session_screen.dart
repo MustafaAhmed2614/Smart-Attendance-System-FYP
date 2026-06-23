@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../constants.dart'; // 🚀 YEH IMPORT LAZMI HAI
+import '../constants.dart'; 
 import 'course_attendance_screen.dart';
 
 class CourseSessionsScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class CourseSessionsScreen extends StatefulWidget {
 
 class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
   late Future<List<String>> _sessionsFuture;
-  final String backendUrl = AppConfig.backendUrl; // 🚀 CENTRALIZED URL
+  final String backendUrl = AppConfig.backendUrl; 
 
   @override
   void initState() {
@@ -30,15 +30,15 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
 
   // Backend se Dates mangwane ka function
   Future<List<String>> fetchCourseSessions(String courseName) async {
-    // 🚀 Ab hardcoded IP ke bajaye dynamic URL use hoga
+    
     final url = Uri.parse(
       '$backendUrl/course-sessions/${Uri.encodeComponent(courseName)}',
     );
     try {
-      print("Calling API: $url"); // Terminal mein print hoga
+      print("Calling API: $url"); 
       final response = await http
           .get(url)
-          .timeout(const Duration(seconds: 10)); // 10 sec timeout
+          .timeout(const Duration(seconds: 10)); 
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -77,7 +77,7 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
               child: Text('Error loading dates! Check backend connection.'),
             );
           }
-          // Empty State (Koi attendance nahi hui ab tak)
+          
           else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(
               child: Column(
@@ -94,7 +94,6 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
             );
           }
 
-          // Success State - Dates ki List Dikhana
           final sessions = snapshot.data!;
           return ListView.builder(
             padding: const EdgeInsets.all(12),
@@ -158,7 +157,6 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
               ),
             ),
           ).then((_) {
-            // 3. Jab teacher attendance laga kar wapis back aaye, toh list refresh ho jaye
             setState(() {
               _sessionsFuture = fetchCourseSessions(widget.courseName);
             });

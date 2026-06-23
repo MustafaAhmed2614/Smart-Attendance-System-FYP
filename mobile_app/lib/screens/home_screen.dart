@@ -17,29 +17,23 @@ class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = false;
 
-  // Attendance lene ka main function
   void _takeAttendance() async {
     final picker = ImagePicker();
 
-    // Camera se photo lena
     final pickedFile = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality:
-          50, // Size chota rakhne ke liye taake backend jaldi process kare
+      imageQuality: 50,
     );
 
     if (pickedFile != null) {
       setState(() => _isLoading = true);
 
       try {
-        // API ko photo bhejna
         final response = await _apiService.markAttendance(
           File(pickedFile.path),
         );
 
         if (!mounted) return;
-
-        // Kamyabi ka message dikhana
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
@@ -56,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       } catch (e) {
-        // Agar koi error aaye (Timeout, IP change, etc.)
         if (!mounted) return;
 
         showDialog(
@@ -73,8 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       } finally {
-        // Yeh block har haal mein chalega, chahe success ho ya error
-        // Is se loader ruk jayega
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -93,7 +84,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.logout, color: Colors.blue),
             tooltip: 'Logout',
             onPressed: () {
-              // Saari history clear kar ke Login par wapas bhejein
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => LoginScreen()),
@@ -126,8 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 50),
-
-            // Agar loading ho rahi ho toh indicator dikhayein warna button
             _isLoading
                 ? Column(
                     children: const [
@@ -151,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
             const SizedBox(height: 15),
-            // Mark Attendance button ke niche ye add karein:
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -170,14 +157,11 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 15),
             ElevatedButton.icon(
               onPressed: () {
-                // Nayi screen par jane ka code (Navigation)
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => TeacherDashboard(
-                      teacherUsername:
-                          "TestTeacher", // Abhi testing ke liye koi bhi naam likh dein
-                    ),
+                    builder: (context) =>
+                        TeacherDashboard(teacherUsername: "TestTeacher"),
                   ),
                 );
               },

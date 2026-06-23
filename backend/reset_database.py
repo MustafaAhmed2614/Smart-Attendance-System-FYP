@@ -1,6 +1,6 @@
 from main import get_db_connection
 
-print("🗑️ Initiating complete database reset...\n")
+print("Initiating complete database reset...\n")
 
 try:
     conn = get_db_connection()

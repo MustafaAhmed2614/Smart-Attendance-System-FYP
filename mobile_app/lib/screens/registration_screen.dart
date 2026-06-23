@@ -14,9 +14,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // Text fields
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _rollNoController =
-      TextEditingController(); // Naya Roll No field
+      TextEditingController(); 
 
-  // 3 alag alag angles ki tasveerein
+ 
   File? _frontImage;
   File? _leftImage;
   File? _rightImage;
@@ -24,7 +24,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _isLoading = false;
   final ApiService _apiService = ApiService();
 
-  // Smart function jo angle ke hisaab se tasveer set karega
   Future<void> _captureFace(String angle) async {
     final pickedFile = await ImagePicker().pickImage(
       source: ImageSource.camera,
@@ -45,7 +44,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _handleRegister() async {
-    // 1. Text fields ki validation
     if (_nameController.text.isEmpty || _rollNoController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -54,8 +52,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       );
       return;
     }
-
-    // 2. Tasveeron ki validation
     if (_frontImage == null || _leftImage == null || _rightImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -69,11 +65,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     setState(() => _isLoading = true);
 
-    // Yahan hum ApiService ko naya data bhej rahe hain
     bool success = await _apiService.registerStudent(
       name: _nameController.text,
-      rollNo: _rollNoController.text, // Naya parameter
-      frontImage: _frontImage!, // Naye parameters
+      rollNo: _rollNoController.text, 
+      frontImage: _frontImage!, 
       leftImage: _leftImage!,
       rightImage: _rightImage!,
     );
@@ -82,7 +77,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
     if (success) {
       _showDialog("Success ✅", "Student registered successfully!");
-      // Form saaf kar dein
+      
       _nameController.clear();
       _rollNoController.clear();
       setState(() {
@@ -113,8 +108,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-
-  // Tasveer dikhane ka UI block
   Widget _buildImagePicker(String label, String angle, File? imgFile) {
     return Column(
       children: [
@@ -159,8 +152,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
             ),
             const SizedBox(height: 30),
-
-            // Teeno tasveerein ek Row mein
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [

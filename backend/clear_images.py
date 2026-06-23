@@ -25,4 +25,4 @@ if os.path.exists("representations_arcface.pkl"):
     os.remove("representations_arcface.pkl")
     print("✅ Successfully deleted AI model cache (.pkl file).")
 
-print("\n🎉 Cleanup complete! All previous images and cached data have been successfully removed.")
+print("\n Cleanup complete! All previous images and cached data have been successfully removed.")

@@ -16,8 +16,6 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   final String backendUrl = AppConfig.backendUrl;
-
-  // 🚀 NAYA VARIABLE: Grouped data store karne ke liye
   List<dynamic> attendanceData = [];
   String studentName = "";
   bool isLoading = true;
@@ -37,7 +35,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         final data = jsonDecode(response.body);
         setState(() {
           studentName = data['student_name'];
-          attendanceData = data['attendance_data']; // 🚀 Update kiya gaya
+          attendanceData = data['attendance_data']; 
           isLoading = false;
         });
       }
@@ -118,7 +116,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                 String courseName = courseData['course_name'];
                                 List records = courseData['records'];
 
-                                // 🚀 NAYA DESIGN: Course ka Dropdown (Accordion)
+                                
                                 return Card(
                                   margin: const EdgeInsets.symmetric(
                                     vertical: 8,
@@ -150,7 +148,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                       ),
                                     ),
 
-                                    // 🚀 Is course ke andar mojood saari dates
+                                    
                                     children: records.map<Widget>((record) {
                                       String statusText = record['status']
                                           .toString();
@@ -160,7 +158,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
                                       return Container(
                                         color: Colors
-                                            .grey[50], // Andar wali list ka halka background
+                                            .grey[50], 
                                         child: ListTile(
                                           contentPadding:
                                               const EdgeInsets.symmetric(
