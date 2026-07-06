@@ -32,11 +32,14 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   String todayDate = "";
   bool isScanning = false;
 
+  // ✨ Naya variable Loading Spinner ke liye
+  bool isUploadingFaces = false;
+
   @override
   void initState() {
     super.initState();
     fetchPendingStudents();
-    fetchTodayAttendance(); 
+    fetchTodayAttendance();
   }
 
   // API: Get Pending Students
@@ -86,6 +89,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       setState(() => isLoadingAttendance = false);
     }
   }
+
   // API: Manual Toggle Attendance
   Future<void> toggleManualAttendance(
     String rollNumber,
@@ -109,7 +113,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           "roll_number": rollNumber,
           "course_name": widget.courseName,
           "status": newStatus,
-          "date": widget.date, 
+          "date": widget.date,
         }),
       );
 
@@ -261,6 +265,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       onTap: onTap,
     );
   }
+
   void showRegistrationDialog(
     BuildContext context,
     String studentName,
@@ -384,6 +389,8 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
       },
     );
   }
+
+  // ✨ UPDATED: API Call with Loading Spinner Logic
   Future<void> uploadFacesToAPI(
     String studentName,
     String rollNumber,
@@ -393,6 +400,11 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     File up,
     File smile,
   ) async {
+    // Spinner ON
+    setState(() {
+      isUploadingFaces = true;
+    });
+
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Uploading 5 faces for $studentName...")),
@@ -428,7 +440,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           ),
         );
         fetchPendingStudents();
-        fetchTodayAttendance(); 
+        fetchTodayAttendance();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -445,6 +457,13 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             backgroundColor: Colors.red,
           ),
         );
+    } finally {
+      // ✨ Spinner OFF (Har haal mein)
+      if (mounted) {
+        setState(() {
+          isUploadingFaces = false;
+        });
+      }
     }
   }
 
@@ -563,7 +582,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
             ),
           );
         } else {
-          
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -605,144 +623,242 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.courseName),
-          backgroundColor: Colors.blueAccent,
-          bottom: const TabBar(
-            indicatorColor: Colors.white,
-            tabs: [
-              Tab(
-                icon: Icon(Icons.how_to_reg),
-                text: "Daily Status",
-              ), // 🚀 Text updated
-              Tab(icon: Icon(Icons.person_add_alt_1), text: "Pending Faces"),
-            ],
+    // ✨ WillPopScope taake Back button block ho jaye uploading ke waqt
+    return WillPopScope(
+      onWillPop: () async => !isUploadingFaces,
+      child: DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(widget.courseName),
+            backgroundColor: Colors.blueAccent,
+            bottom: const TabBar(
+              indicatorColor: Colors.white,
+              tabs: [
+                Tab(icon: Icon(Icons.how_to_reg), text: "Daily Status"),
+                Tab(icon: Icon(Icons.person_add_alt_1), text: "Pending Faces"),
+              ],
+            ),
           ),
-        ),
-        body: TabBarView(
-          children: [
-            Column(
-              children: [
-                // Scan Button at the top
-                Container(
-                  padding: const EdgeInsets.all(15),
-                  width: double.infinity,
-                  color: Colors.blue[50],
-                  child: ElevatedButton.icon(
-                    onPressed: isScanning ? null : markAttendance,
-                    icon: isScanning
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.camera_alt),
-                    label: Text(
-                      isScanning
-                          ? "Scanning Faces... Please wait"
-                          : "Scan Class for Attendance",
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      // Scan hote waqt button grey ho jayega
-                      backgroundColor: isScanning
-                          ? Colors.grey
-                          : Colors.blueAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Date Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 10,
-                    horizontal: 15,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ✨ Stack lagaya gaya hai Full Screen Loading ke liye
+          body: Stack(
+            children: [
+              TabBarView(
+                children: [
+                  Column(
                     children: [
-                      const Text(
-                        "Today's Roster",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        width: double.infinity,
+                        color: Colors.blue[50],
+                        child: ElevatedButton.icon(
+                          onPressed: isScanning ? null : markAttendance,
+                          icon: isScanning
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.camera_alt),
+                          label: Text(
+                            isScanning
+                                ? "Scanning Faces... Please wait"
+                                : "Scan Class for Attendance",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            backgroundColor: isScanning
+                                ? Colors.grey
+                                : Colors.blueAccent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
                         ),
                       ),
-                      Text(
-                        todayDate,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 15,
                         ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "Today's Roster",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              todayDate,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(),
+
+                      Expanded(
+                        child: isLoadingAttendance
+                            ? const Center(child: CircularProgressIndicator())
+                            : todayAttendanceList.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.group_off,
+                                      size: 60,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    const Text(
+                                      "No registered students found.",
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: todayAttendanceList.length,
+                                itemBuilder: (context, index) {
+                                  var student = todayAttendanceList[index];
+                                  bool isPresent =
+                                      student['status'] == "Present";
+
+                                  return Card(
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      side: BorderSide(
+                                        color: isPresent
+                                            ? Colors.green.shade200
+                                            : Colors.red.shade200,
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: isPresent
+                                            ? Colors.green[100]
+                                            : Colors.red[100],
+                                        child: Icon(
+                                          isPresent ? Icons.check : Icons.close,
+                                          color: isPresent
+                                              ? Colors.green[800]
+                                              : Colors.red[800],
+                                        ),
+                                      ),
+                                      title: Text(
+                                        student['name'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        "Roll No: ${student['roll_number']}",
+                                      ),
+                                      trailing: GestureDetector(
+                                        onTap: () {
+                                          toggleManualAttendance(
+                                            student['roll_number'],
+                                            student['status'],
+                                          );
+                                        },
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 300,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isPresent
+                                                ? Colors.green
+                                                : Colors.red,
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color:
+                                                    (isPresent
+                                                            ? Colors.green
+                                                            : Colors.red)
+                                                        .withOpacity(0.3),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                student['status'],
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              const Icon(
+                                                Icons.touch_app,
+                                                color: Colors.white,
+                                                size: 15,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
-                ),
-                const Divider(),
 
-                // Attendance List
-                Expanded(
-                  child: isLoadingAttendance
+                  isLoadingPending
                       ? const Center(child: CircularProgressIndicator())
-                      : todayAttendanceList.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.group_off,
-                                size: 60,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 10),
-                              const Text(
-                                "No registered students found.",
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
+                      : pendingStudents.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "No pending registrations!",
+                            style: TextStyle(fontSize: 18, color: Colors.green),
                           ),
                         )
                       : ListView.builder(
-                          itemCount: todayAttendanceList.length,
+                          itemCount: pendingStudents.length,
                           itemBuilder: (context, index) {
-                            var student = todayAttendanceList[index];
-                            bool isPresent = student['status'] == "Present";
-
+                            var student = pendingStudents[index];
                             return Card(
                               margin: const EdgeInsets.symmetric(
                                 horizontal: 10,
-                                vertical: 4,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  color: isPresent
-                                      ? Colors.green.shade200
-                                      : Colors.red.shade200,
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
+                                vertical: 5,
                               ),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: isPresent
-                                      ? Colors.green[100]
-                                      : Colors.red[100],
+                                  backgroundColor: Colors.blue[100],
                                   child: Icon(
-                                    isPresent ? Icons.check : Icons.close,
-                                    color: isPresent
-                                        ? Colors.green[800]
-                                        : Colors.red[800],
+                                    Icons.person,
+                                    color: Colors.blue[800],
                                   ),
                                 ),
                                 title: Text(
@@ -754,122 +870,64 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                                 subtitle: Text(
                                   "Roll No: ${student['roll_number']}",
                                 ),
-                                trailing: GestureDetector(
-                                  onTap: () {
-                                    
-                                    toggleManualAttendance(
+                                trailing: ElevatedButton(
+                                  onPressed: () {
+                                    showRegistrationDialog(
+                                      context,
+                                      student['name'],
                                       student['roll_number'],
-                                      student['status'],
                                     );
                                   },
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isPresent
-                                          ? Colors.green
-                                          : Colors.red,
-                                      borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color:
-                                              (isPresent
-                                                      ? Colors.green
-                                                      : Colors.red)
-                                                  .withOpacity(0.3),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          student['status'],
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        const Icon(
-                                          Icons.touch_app,
-                                          color: Colors.white,
-                                          size: 15,
-                                        ), // Clickable ka icon
-                                      ],
-                                    ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
                                   ),
+                                  child: const Text("Scan Face"),
                                 ),
                               ),
                             );
                           },
                         ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
-            isLoadingPending
-                ? const Center(child: CircularProgressIndicator())
-                : pendingStudents.isEmpty
-                ? const Center(
-                    child: Text(
-                      "No pending registrations!",
-                      style: TextStyle(fontSize: 18, color: Colors.green),
+              // ✨ Loading Overlay yahan hai
+              if (isUploadingFaces)
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  color: Colors.black.withOpacity(0.6),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(color: Colors.blueAccent),
+                        SizedBox(height: 16),
+                        Text(
+                          'Uploading Images\nPlease wait, do not close the app.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ],
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: pendingStudents.length,
-                    itemBuilder: (context, index) {
-                      var student = pendingStudents[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.blue[100],
-                            child: Icon(Icons.person, color: Colors.blue[800]),
-                          ),
-                          title: Text(
-                            student['name'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text("Roll No: ${student['roll_number']}"),
-                          trailing: ElevatedButton(
-                            onPressed: () {
-                              showRegistrationDialog(
-                                context,
-                                student['name'],
-                                student['roll_number'],
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                            ),
-                            child: const Text("Scan Face"),
-                          ),
-                        ),
-                      );
-                    },
                   ),
-          ],
-        ),
-
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: showAddStudentDialog,
-          icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text(
-            "Add Student",
-            style: TextStyle(color: Colors.white),
+                ),
+            ],
           ),
-          backgroundColor: Colors.blueAccent,
+
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: showAddStudentDialog,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              "Add Student",
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.blueAccent,
+          ),
         ),
       ),
     );

@@ -18,7 +18,7 @@ class TeacherDashboard extends StatefulWidget {
 class _TeacherDashboardState extends State<TeacherDashboard> {
   final String backendUrl = AppConfig.backendUrl;
   List<dynamic> courses = [];
-  bool isLoading = true;
+  bool isLoading = true; // ✨ Initial load ke liye
 
   @override
   void initState() {
@@ -26,9 +26,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     fetchCourses();
   }
 
-  // ⚙️ LOGIC: Bilkul wahi hai jo aapka tha
   Future<void> fetchCourses() async {
-    setState(() => isLoading = true);
+    // RefreshIndicator ke waqt hum 'isLoading' true nahi karenge taake screen na bhare
     try {
       final response = await http.get(
         Uri.parse('$backendUrl/my-courses/${widget.teacherUsername}'),
@@ -49,12 +48,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       }
     } catch (e) {
       print("Error fetching courses: $e");
-      if (!mounted) return;
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // ⚙️ LOGIC: Bilkul wahi hai jo aapka tha
   Future<void> addCourse(String courseName) async {
     try {
       final response = await http.post(
@@ -71,7 +68,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       final data = jsonDecode(response.body);
       if (data['status'] == 'Success') {
         await fetchCourses();
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['message']),
@@ -84,15 +80,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         );
       }
     } catch (e) {
-      print("Error adding course: $e");
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
 
-  // ⚙️ LOGIC: Bilkul wahi hai jo aapka tha
   void showAddCourseDialog() {
     TextEditingController courseController = TextEditingController();
     showDialog(
@@ -107,22 +100,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           controller: courseController,
           decoration: InputDecoration(
             hintText: "e.g. Software Engineering",
-            prefixIcon: Icon(Icons.book, color: Colors.blueAccent),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: TextStyle(color: Colors.red)),
+            child: Text("Cancel"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
             onPressed: () {
               if (courseController.text.isNotEmpty) {
                 Navigator.pop(context);
@@ -136,7 +123,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  // ✨ NAYA UI WIDGET: Chotay Stats Box ke liye
   Widget _buildStatCard(String title, String count, IconData icon) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 15, vertical: 12),
@@ -174,32 +160,25 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100], // Halka sa grey background
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        elevation: 0, // Appbar flat kar diya taake header ke sath mix ho jaye
         title: Text('Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.blueAccent,
         actions: [
           IconButton(
-            icon: Icon(Icons.people_alt, color: Colors.white),
-            tooltip: 'All Students Directory',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => AllStudentsScreen()),
-              );
-            },
+            icon: Icon(Icons.people_alt),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => AllStudentsScreen()),
+            ),
           ),
           IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Logout',
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoginScreen()),
-                (Route<dynamic> route) => false,
-              );
-            },
+            icon: Icon(Icons.logout),
+            onPressed: () => Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => LoginScreen()),
+              (route) => false,
+            ),
           ),
         ],
       ),
@@ -207,15 +186,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ? Center(child: CircularProgressIndicator(color: Colors.blueAccent))
           : Column(
               children: [
-                // ✨ NAYA UI: Dashboard Header Area
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    bottom: 30,
-                    top: 10,
-                  ),
+                  padding: EdgeInsets.fromLTRB(20, 10, 20, 30),
                   decoration: BoxDecoration(
                     color: Colors.blueAccent,
                     borderRadius: BorderRadius.only(
@@ -228,7 +201,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     children: [
                       Text(
                         "Welcome back,",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        style: TextStyle(color: Colors.white70),
                       ),
                       Text(
                         widget.teacherUsername.toUpperCase(),
@@ -239,154 +212,67 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                         ),
                       ),
                       SizedBox(height: 20),
-                      Row(
-                        children: [
-                          _buildStatCard(
-                            "Total Courses",
-                            courses.length.toString(),
-                            Icons.library_books,
-                          ),
-                          SizedBox(width: 15),
-                          _buildStatCard(
-                            "Status",
-                            "Active",
-                            Icons.verified_user,
-                          ),
-                        ],
+                      _buildStatCard(
+                        "Total Courses",
+                        courses.length.toString(),
+                        Icons.library_books,
                       ),
                     ],
                   ),
                 ),
-
-                // My Courses Title
-                Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Your Active Courses",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ✨ NAYA UI: List of Courses
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: fetchCourses,
-                    color: Colors.blueAccent,
                     child: courses.isEmpty
                         ? ListView(
-                            physics: const AlwaysScrollableScrollPhysics(),
+                            physics: AlwaysScrollableScrollPhysics(),
                             children: [
-                              SizedBox(
-                                height:
-                                    MediaQuery.of(context).size.height * 0.1,
-                              ),
+                              SizedBox(height: 100),
                               Icon(
                                 Icons.folder_open,
                                 size: 80,
                                 color: Colors.grey[300],
                               ),
-                              SizedBox(height: 10),
                               Center(
                                 child: Text(
-                                  "No courses found. Create one!\nPull down to refresh.",
+                                  "No courses found.\nPull down to refresh.",
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 16,
-                                  ),
+                                  style: TextStyle(color: Colors.grey),
                                 ),
                               ),
                             ],
                           )
                         : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.symmetric(horizontal: 15),
+                            padding: EdgeInsets.all(15),
                             itemCount: courses.length,
                             itemBuilder: (context, index) {
                               String courseName = courses[index];
                               return Card(
-                                elevation: 2,
-                                margin: EdgeInsets.only(bottom: 15),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(15),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            CourseSessionsScreen(
-                                              courseName: courseName,
-                                              teacherUsername:
-                                                  widget.teacherUsername,
-                                            ),
+                                child: ListTile(
+                                  leading: Icon(
+                                    Icons.class_,
+                                    color: Colors.blueAccent,
+                                  ),
+                                  title: Text(
+                                    courseName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  trailing: Icon(
+                                    Icons.arrow_forward_ios,
+                                    size: 16,
+                                  ),
+                                  onTap: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CourseSessionsScreen(
+                                        courseName: courseName,
+                                        teacherUsername: widget.teacherUsername,
                                       ),
-                                    );
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(15.0),
-                                    child: Row(
-                                      children: [
-                                        // Course Icon
-                                        Container(
-                                          padding: EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Colors.blueAccent
-                                                .withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.class_,
-                                            color: Colors.blueAccent,
-                                            size: 28,
-                                          ),
-                                        ),
-                                        SizedBox(width: 15),
-
-                                        // Course Details
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                courseName,
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.black87,
-                                                ),
-                                              ),
-                                              SizedBox(height: 5),
-                                              Text(
-                                                "Tap to manage attendance",
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontSize: 13,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-
-                                        // Arrow Icon
-                                        Icon(
-                                          Icons.arrow_forward_ios,
-                                          color: Colors.grey[400],
-                                          size: 18,
-                                        ),
-                                      ],
                                     ),
                                   ),
                                 ),
@@ -405,7 +291,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.blueAccent,
-        elevation: 4,
       ),
     );
   }
