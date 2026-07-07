@@ -19,37 +19,46 @@ class CourseSessionsScreen extends StatefulWidget {
 }
 
 class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
-  late Future<List<String>> _sessionsFuture;
+  // ✨ FutureBuilder ki jagah manual state variables
+  List<String> sessions = [];
+  bool isLoading = true;
   final String backendUrl = AppConfig.backendUrl;
 
   @override
   void initState() {
     super.initState();
-    _sessionsFuture = fetchCourseSessions(widget.courseName);
+    fetchCourseSessions();
   }
 
-  Future<List<String>> fetchCourseSessions(String courseName) async {
+  // ✨ Naya Fetch Logic
+  Future<void> fetchCourseSessions() async {
     final url = Uri.parse(
-      '$backendUrl/course-sessions/${Uri.encodeComponent(courseName)}',
+      '$backendUrl/course-sessions/${Uri.encodeComponent(widget.courseName)}',
     );
     try {
-      print("Calling API: $url");
       final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'Success') {
-          return List<String>.from(data['sessions']);
+          setState(() {
+            sessions = List<String>.from(data['sessions']);
+            isLoading = false; // Data aane ke baad loading off
+          });
+          return;
         }
       }
-      return [];
+
+      // Agar status success nahi hai
+      if (mounted) setState(() => isLoading = false);
     } catch (e) {
       print('Error fetching sessions: $e');
-      return [];
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  // ✨ UPDATE: Ab yeh function Din ka naam bhi batayega (e.g., Monday, 09 Jun 2026)
   String getFormattedDate(String dateStr) {
     try {
       DateTime dt = DateTime.parse(dateStr);
@@ -77,8 +86,7 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
         "Sunday",
       ];
 
-      String dayName =
-          weekdays[dt.weekday - 1]; // Dart mein 1=Monday, 7=Sunday hota hai
+      String dayName = weekdays[dt.weekday - 1];
       String dayNum = dt.day.toString().padLeft(2, '0');
       String monthName = months[dt.month - 1];
 
@@ -131,204 +139,188 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
         backgroundColor: Colors.blueAccent,
         elevation: 0,
       ),
-      body: FutureBuilder<List<String>>(
-        future: _sessionsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.blueAccent),
-            );
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 60, color: Colors.red[300]),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Error loading dates! Check connection.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // Header hamesha show hoga
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.only(bottom: 25, top: 10),
+            decoration: const BoxDecoration(
+              color: Colors.blueAccent,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(30),
+                bottomRight: Radius.circular(30),
               ),
-            );
-          }
-
-          final sessions = snapshot.data ?? [];
-
-          return Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.only(bottom: 25, top: 10),
-                decoration: const BoxDecoration(
-                  color: Colors.blueAccent,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  "Total Sessions Conducted",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  isLoading
+                      ? "-"
+                      : "${sessions.length}", // Loading ke waqt dash show karega
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Total Sessions Conducted",
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "${sessions.length}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              ],
+            ),
+          ),
 
-              Expanded(
-                child: sessions.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.event_note,
-                              size: 80,
-                              color: Colors.grey[300],
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No attendance records found.\nStart your first session today!',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey,
+          // ✨ Main List area
+          Expanded(
+            child: isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.blueAccent),
+                  )
+                : RefreshIndicator(
+                    // ✨ Pull to Refresh lag gaya
+                    onRefresh: fetchCourseSessions,
+                    color: Colors.blueAccent,
+                    child: sessions.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height * 0.15,
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : // ... ListView.builder ka ye part replace karein ...
-                      ListView.builder(
-                        padding: const EdgeInsets.all(15),
-                        itemCount: sessions.length,
-                        itemBuilder: (context, index) {
-                          final date = sessions[index];
-
-                          // ✨ LOGIC: List ulta chal raha hai toh index ko adjust kar sakte hain
-                          // Agar latest session sab se upar chahiye toh (sessions.length - index) use karein
-                          int sessionNumber = sessions.length - index;
-
-                          return Card(
-                            elevation: 3,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(15),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        CourseAttendanceScreen(
-                                          courseName: widget.courseName,
-                                          teacherUsername:
-                                              widget.teacherUsername,
-                                          date: date,
-                                        ),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 15,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Text(
-                                            getMonth(date),
-                                            style: const TextStyle(
-                                              color: Colors.blueAccent,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            getDay(date),
-                                            style: const TextStyle(
-                                              color: Colors.blueAccent,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 15),
-
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          // ✨ NAYA UI: Session Numbering
-                                          Text(
-                                            "Session #$sessionNumber",
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              color: Colors.blueAccent,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 5),
-                                          Text(
-                                            getFormattedDate(date),
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[100],
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.arrow_forward_ios,
-                                        size: 14,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                              Icon(
+                                Icons.event_note,
+                                size: 80,
+                                color: Colors.grey[300],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'No attendance records found.\nStart your first session today!\n(Pull down to refresh)',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
+                            ],
+                          )
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(15),
+                            itemCount: sessions.length,
+                            itemBuilder: (context, index) {
+                              final date = sessions[index];
+                              int sessionNumber = sessions.length - index;
+
+                              return Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(15),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            CourseAttendanceScreen(
+                                              courseName: widget.courseName,
+                                              teacherUsername:
+                                                  widget.teacherUsername,
+                                              date: date,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 15,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.blue.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              Text(
+                                                getMonth(date),
+                                                style: const TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                getDay(date),
+                                                style: const TextStyle(
+                                                  color: Colors.blueAccent,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 20,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 15),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Session #$sessionNumber",
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                  color: Colors.blueAccent,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Text(
+                                                getFormattedDate(date),
+                                                style: TextStyle(
+                                                  color: Colors.grey[600],
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey[100],
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.arrow_forward_ios,
+                                            size: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -343,9 +335,11 @@ class _CourseSessionsScreenState extends State<CourseSessionsScreen> {
               ),
             ),
           ).then((_) {
+            // ✨ Screen wapas aane par automatically reload ho jayega
             setState(() {
-              _sessionsFuture = fetchCourseSessions(widget.courseName);
+              isLoading = true;
             });
+            fetchCourseSessions();
           });
         },
         icon: const Icon(Icons.add_a_photo, color: Colors.white),

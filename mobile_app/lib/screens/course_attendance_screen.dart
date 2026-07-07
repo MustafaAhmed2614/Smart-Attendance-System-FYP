@@ -623,7 +623,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✨ WillPopScope taake Back button block ho jaye uploading ke waqt
+    
     return WillPopScope(
       onWillPop: () async => !isUploadingFaces,
       child: DefaultTabController(
@@ -640,7 +640,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               ],
             ),
           ),
-          // ✨ Stack lagaya gaya hai Full Screen Loading ke liye
+          
           body: Stack(
             children: [
               TabBarView(
@@ -890,7 +890,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 ],
               ),
 
-              // ✨ Loading Overlay yahan hai
+              
               if (isUploadingFaces)
                 Container(
                   width: double.infinity,
