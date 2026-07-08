@@ -26,10 +26,10 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
                 best_match_path = best_match_row['identity']
                 distance = best_match_row['distance']
                 
-                # ✨ Scaled Confidence Formula (Panel ke liye optimized) ✨
+                
                 threshold = 0.68 
                 if distance < threshold:
-                    # Score ko 60-100% ki range mein scale kiya
+                    
                     confidence_score = (1 - (distance / threshold)) * 40 + 60
                 else:
                     confidence_score = (1 - distance) * 50
@@ -39,7 +39,7 @@ def recognize_faces(image_path: str, db_path: str = "./students_pics"):
                 raw_name = os.path.basename(best_match_path).split('.')[0] 
                 clean_name = raw_name.split('_')[0] 
 
-                # ✨ Terminal Print Updates ✨
+               
                 print(f" Face {i+1}: Matched with '{clean_name}'")
                 print(f"    AI Distance Metric: {distance:.4f}")
                 print(f"    Confidence Score: {confidence_score:.2f}%")

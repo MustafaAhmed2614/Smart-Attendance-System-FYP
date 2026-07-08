@@ -32,7 +32,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
   String todayDate = "";
   bool isScanning = false;
 
-  // ✨ Naya variable Loading Spinner ke liye
   bool isUploadingFaces = false;
 
   @override
@@ -245,7 +244,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     );
   }
 
-  // WIDGET HELPER: Face Tile
   Widget _buildFaceTile(String title, File? image, VoidCallback onTap) {
     return ListTile(
       tileColor: Colors.grey[100],
@@ -390,7 +388,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     );
   }
 
-  // ✨ UPDATED: API Call with Loading Spinner Logic
   Future<void> uploadFacesToAPI(
     String studentName,
     String rollNumber,
@@ -400,7 +397,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     File up,
     File smile,
   ) async {
-    // Spinner ON
     setState(() {
       isUploadingFaces = true;
     });
@@ -458,7 +454,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
           ),
         );
     } finally {
-      // ✨ Spinner OFF (Har haal mein)
       if (mounted) {
         setState(() {
           isUploadingFaces = false;
@@ -467,7 +462,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
-  // API: Mark Daily Attendance
   Future<void> markAttendance() async {
     final picker = ImagePicker();
 
@@ -621,9 +615,40 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
     }
   }
 
+  // ✨ NAYA WIDGET: Helper function for the Summary Card Columns
+  Widget _buildStatColumn(String label, int count, Color color) {
+    return Column(
+      children: [
+        Text(
+          count.toString(),
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    
+    // ✨ NAYI LOGIC: Real-time calculation for the Summary Card
+    int totalStudents = todayAttendanceList.length;
+    int presentCount = todayAttendanceList
+        .where((student) => student['status'] == "Present")
+        .length;
+    int absentCount = totalStudents - presentCount;
+
     return WillPopScope(
       onWillPop: () async => !isUploadingFaces,
       child: DefaultTabController(
@@ -640,7 +665,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
               ],
             ),
           ),
-          
+
           body: Stack(
             children: [
               TabBarView(
@@ -708,6 +733,60 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                         ),
                       ),
                       const Divider(),
+
+                      // ✨ NAYA UI: Summary Card (Sirf tab dikhega jab data hoga)
+                      if (!isLoadingAttendance &&
+                          todayAttendanceList.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 15),
+                          margin: const EdgeInsets.only(
+                            left: 15,
+                            right: 15,
+                            bottom: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.15),
+                                spreadRadius: 2,
+                                blurRadius: 5,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildStatColumn(
+                                "Total",
+                                totalStudents,
+                                Colors.blueAccent,
+                              ),
+                              Container(
+                                height: 40,
+                                width: 1,
+                                color: Colors.grey[300],
+                              ),
+                              _buildStatColumn(
+                                "Present",
+                                presentCount,
+                                Colors.green,
+                              ),
+                              Container(
+                                height: 40,
+                                width: 1,
+                                color: Colors.grey[300],
+                              ),
+                              _buildStatColumn(
+                                "Absent",
+                                absentCount,
+                                Colors.redAccent,
+                              ),
+                            ],
+                          ),
+                        ),
 
                       Expanded(
                         child: isLoadingAttendance
@@ -890,7 +969,6 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
                 ],
               ),
 
-              
               if (isUploadingFaces)
                 Container(
                   width: double.infinity,
