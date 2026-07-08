@@ -467,6 +467,7 @@ class _CourseAttendanceScreenState extends State<CourseAttendanceScreen> {
 
     final image = await picker.pickImage(
       source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.rear,
       imageQuality: 100,
       maxWidth: 1920,
     );
