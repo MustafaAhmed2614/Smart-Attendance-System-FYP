@@ -17,8 +17,11 @@ from services.ai_engine import recognize_faces
 from pydantic import BaseModel
 import sqlite3
 from passlib.context import CryptContext
+from routers import admin
 app = FastAPI()
 
+
+app.include_router(admin.router)
 class UserSignup(BaseModel):
     username: str
     password: str
@@ -733,3 +736,9 @@ def get_attendance_by_date(course_name: str, target_date: str):
     except Exception as e:
         print(f"‼️ API ERROR in get_attendance_by_date: {str(e)}")
         return {"status": "Error", "message": str(e)}
+    
+#ADMIN PANEL APIS
+
+@app.get("/")
+async def root():
+    return {"message": "Smart Attendance AI Engine is running!"}
