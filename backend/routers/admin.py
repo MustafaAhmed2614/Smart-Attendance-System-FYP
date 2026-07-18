@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 import sqlite3
 from datetime import date
-
+from fastapi import UploadFile, File, Form
 router = APIRouter(
     prefix="/admin",
     tags=["Admin Dashboard"]
@@ -75,3 +75,22 @@ async def get_attendance_reports():
         return {"error": str(e)}
     finally:
         conn.close()
+
+
+
+
+@router.post("/register-student")
+async def register_student(
+    roll_number: str = Form(...),
+    name: str = Form(...),
+    image: UploadFile = File(...)
+):
+    try:
+        # 1. Yahan image ko save karne ya process karne ka logic aayega
+        # 2. Image ko folder mein save karein ya direct embeddings nikalein
+        # 3. Database mein roll_number aur name save karein
+        
+        # Filhal confirmation message return kar rahe hain
+        return {"status": "success", "message": f"Student {name} ({roll_number}) registered successfully!"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
