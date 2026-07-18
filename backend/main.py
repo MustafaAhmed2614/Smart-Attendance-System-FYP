@@ -19,8 +19,17 @@ import sqlite3
 from passlib.context import CryptContext
 from routers import admin
 app = FastAPI()
+from fastapi.middleware.cors import CORSMiddleware
 
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Development ke liye har port ko allow kar rahe hain
+    allow_credentials=True,
+    allow_methods=["*"], # GET, POST, sab allow
+    allow_headers=["*"],
+)
 app.include_router(admin.router)
 class UserSignup(BaseModel):
     username: str
