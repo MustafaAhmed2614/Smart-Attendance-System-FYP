@@ -2,6 +2,9 @@ from fastapi import APIRouter
 import sqlite3
 from datetime import date
 from fastapi import UploadFile, File, Form
+import os
+import shutil
+
 router = APIRouter(
     prefix="/admin",
     tags=["Admin Dashboard"]
@@ -79,6 +82,12 @@ async def get_attendance_reports():
 
 
 
+
+
+# AI dataset ke liye folder create kar rahe hain
+DATASET_DIR = "registered_faces"
+os.makedirs(DATASET_DIR, exist_ok=True)
+
 @router.post("/register-student")
 async def register_student(
     roll_number: str = Form(...),
@@ -86,11 +95,35 @@ async def register_student(
     image: UploadFile = File(...)
 ):
     try:
-        # 1. Yahan image ko save karne ya process karne ka logic aayega
-        # 2. Image ko folder mein save karein ya direct embeddings nikalein
-        # 3. Database mein roll_number aur name save karein
+        # 1. Validation: Check karein ke file waqai image hai
+        if not image.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
+
+        # 2. File ka naam aur path set karein (e.g., registered_faces/FA20-001.jpg)
+        file_extension = image.filename.split(".")[-1]
+        file_name = f"{roll_number}.{file_extension}"
+        file_path = os.path.join(DATASET_DIR, file_name)
+
+        # 3. Image ko physical folder mein save karein
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        # 4. 🚀 Yahan Face Embedding ka function call hoga
+        # face_embedding = generate_arcface_embedding(file_path)
+
+        # 5. 🗄️ Yahan SQL Database ki Insert query aayegi
+        # cursor.execute(
+        #     "INSERT INTO students (roll_number, name, image_path) VALUES (?, ?, ?)", 
+        #     (roll_number, name, file_path)
+        # )
+        # conn.commit()
+
+        # Success message with data
+        return {
+            "status": "success", 
+            "message": f"Student {name} ({roll_number}) registered successfully!",
+            "saved_path": file_path
+        }
         
-        # Filhal confirmation message return kar rahe hain
-        return {"status": "success", "message": f"Student {name} ({roll_number}) registered successfully!"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"Registration failed: {str(e)}"}

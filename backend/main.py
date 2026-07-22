@@ -751,3 +751,5 @@ def get_attendance_by_date(course_name: str, target_date: str):
 @app.get("/")
 async def root():
     return {"message": "Smart Attendance AI Engine is running!"}
+
+
