@@ -753,3 +753,123 @@ async def root():
     return {"message": "Smart Attendance AI Engine is running!"}
 
 
+# ==========================================
+# ADMIN PANEL ENDPOINTS (Add in main.py)
+# ==========================================
+
+@app.get("/admin/stats")
+def get_dashboard_stats():
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Total Registered Students
+        cursor.execute("SELECT COUNT(*) FROM students")
+        total_students = cursor.fetchone()[0]
+
+        # Today's Present Students
+        cursor.execute("SELECT COUNT(DISTINCT roll_number) FROM attendance WHERE date = ? AND roll_number != 'SYSTEM'", (today,))
+        present_today = cursor.fetchone()[0]
+
+        conn.close()
+        return {
+            "status": "Success",
+            "total_students": total_students,
+            "present_today": present_today
+        }
+    except Exception as e:
+        return {
+            "status": "Error",
+            "total_students": 0,
+            "present_today": 0,
+            "message": str(e)
+        }
+
+
+@app.post("/admin/register-student")
+async def register_student_from_admin(
+    roll_number: str = Form(...),
+    name: str = Form(...),
+    image: UploadFile = File(...)
+):
+    try:
+        os.makedirs("./students_pics", exist_ok=True)
+        file_path = f"./students_pics/{name}_{roll_number}_front.jpg"
+        
+        # Save uploaded image
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+        # Clear PKL cache so AI model learns new face
+        for f in os.listdir("./students_pics"):
+            if f.endswith(".pkl"):
+                os.remove(os.path.join("./students_pics", f))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if student exists
+        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
+        if cursor.fetchone():
+            cursor.execute(
+                "UPDATE students SET name = ?, face_status = 'Registered' WHERE roll_number = ?",
+                (name, roll_number)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, 'Registered')",
+                (name, roll_number)
+            )
+
+        conn.commit()
+        conn.close()
+
+        return {
+            "status": "Success",
+            "message": f"Student {name} registered successfully!"
+        }
+    except Exception as e:
+        return {
+            "status": "Error",
+            "message": str(e)
+        }
+
+
+    from datetime import datetime, timedelta
+
+@app.get("/admin/weekly-stats")
+def get_weekly_stats():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Calculate Monday of current week
+        today = datetime.now()
+        start_of_week = today - timedelta(days=today.weekday()) # Monday
+        
+        days_label = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        weekly_data = []
+        
+        for i in range(5):
+            current_day_date = (start_of_week + timedelta(days=i)).strftime("%Y-%m-%d")
+            
+            # Count distinct students present on this specific date
+            cursor.execute(
+                "SELECT COUNT(DISTINCT roll_number) FROM attendance WHERE date = ? AND roll_number != 'SYSTEM'",
+                (current_day_date,)
+            )
+            present_count = cursor.fetchone()[0]
+            
+            weekly_data.append({
+                "day": days_label[i],
+                "date": current_day_date,
+                "count": present_count
+            })
+            
+        conn.close()
+        return {"status": "Success", "weekly_data": weekly_data}
+        
+    except Exception as e:
+        print(f"Error fetching weekly stats: {e}")
+        return {"status": "Error", "message": str(e), "weekly_data": []}
