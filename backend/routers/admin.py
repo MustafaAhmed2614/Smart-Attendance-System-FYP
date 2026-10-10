@@ -52,9 +52,9 @@ async def get_attendance_reports():
     cursor = conn.cursor()
 
     try:
-        # JOIN query: Students aur Attendance tables ko mila kar data nikalna
+        # Yahan Attendance.course_name ko query mein shamil kar diya gaya hai
         query = """
-            SELECT Students.roll_number, Students.name, Attendance.date, Attendance.time 
+            SELECT Students.roll_number, Students.name, Attendance.date, Attendance.time, Attendance.course_name 
             FROM Attendance 
             JOIN Students ON Attendance.roll_number = Students.roll_number 
             ORDER BY Attendance.date DESC, Attendance.time DESC
@@ -63,7 +63,6 @@ async def get_attendance_reports():
         cursor.execute(query)
         records = cursor.fetchall()
 
-        # Data ko JSON friendly format (list of dictionaries) mein convert karna
         reports_list = []
         for row in records:
             reports_list.append(dict(row))
@@ -83,7 +82,6 @@ async def get_attendance_reports():
 
 
 
-
 # AI dataset ke liye folder create kar rahe hain
 DATASET_DIR = "registered_faces"
 os.makedirs(DATASET_DIR, exist_ok=True)
@@ -95,35 +93,89 @@ async def register_student(
     image: UploadFile = File(...)
 ):
     try:
-        # 1. Validation: Check karein ke file waqai image hai
-        if not image.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
+        # 1. Check if file is provided
+        if not image:
+            raise HTTPException(status_code=400, detail="No image uploaded.")
 
-        # 2. File ka naam aur path set karein (e.g., registered_faces/FA20-001.jpg)
-        file_extension = image.filename.split(".")[-1]
-        file_name = f"{roll_number}.{file_extension}"
-        file_path = os.path.join(DATASET_DIR, file_name)
+        # 2. Path set karein jahan AI engine read karta hai (students_pics folder)
+        STUDENTS_DIR = "students_pics"
+        os.makedirs(STUDENTS_DIR, exist_ok=True)
 
-        # 3. Image ko physical folder mein save karein
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+        # 3. File ka naam format karein (e.g., Name_Roll_front.jpg)
+        file_name = f"{name}_{roll_number}_front.jpg"
+        file_path = os.path.join(STUDENTS_DIR, file_name)
 
-        # 4. 🚀 Yahan Face Embedding ka function call hoga
-        # face_embedding = generate_arcface_embedding(file_path)
+        # 4. Image bytes save karein
+        contents = await image.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
 
-        # 5. 🗄️ Yahan SQL Database ki Insert query aayegi
-        # cursor.execute(
-        #     "INSERT INTO students (roll_number, name, image_path) VALUES (?, ?, ?)", 
-        #     (roll_number, name, file_path)
-        # )
-        # conn.commit()
+        # 5. Purana PKL cache delete karein taake AI naya face learn kar sakay
+        for f in os.listdir(STUDENTS_DIR):
+            if f.endswith(".pkl"):
+                os.remove(os.path.join(STUDENTS_DIR, f))
 
-        # Success message with data
+        # 6. Database mein face status update ya insert karein
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
+        if cursor.fetchone():
+            cursor.execute(
+                "UPDATE students SET name = ?, face_status = 'Registered' WHERE roll_number = ?",
+                (name, roll_number)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, 'Registered')",
+                (name, roll_number)
+            )
+        conn.commit()
+        conn.close()
+
         return {
             "status": "success", 
-            "message": f"Student {name} ({roll_number}) registered successfully!",
+            "message": f"Student {name} registered successfully!",
             "saved_path": file_path
         }
         
     except Exception as e:
         return {"status": "error", "message": f"Registration failed: {str(e)}"}
+
+
+
+
+@router.get("/student-detail/{roll_number}")
+async def get_student_detail(roll_number: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        # 1. Student ki basic info lena
+        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
+        student = cursor.fetchone()
+        
+        if not student:
+            return {"status": "error", "message": "Student not found"}
+
+        # 2. Us student ki attendance history lena
+        cursor.execute("""
+            SELECT date, time, course_name 
+            FROM attendance 
+            WHERE roll_number = ? 
+            ORDER BY date DESC, time DESC
+        """, (roll_number,))
+        attendance_logs = cursor.fetchall()
+
+        logs_list = [dict(row) for row in attendance_logs]
+
+        return {
+            "status": "success",
+            "student": dict(student),
+            "total_attendance": len(logs_list),
+            "logs": logs_list
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    finally:
+        conn.close()

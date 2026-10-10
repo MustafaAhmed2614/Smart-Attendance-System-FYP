@@ -678,52 +678,52 @@ def get_dashboard_stats():
     except Exception as e:
         return {"status": "Error", "total_students": 0, "present_today": 0, "message": str(e)}
 
-@app.post("/admin/register-student")
-async def register_student_from_admin(
-    roll_number: str = Form(...),
-    name: str = Form(...),
-    image: UploadFile = File(...)
-):
-    try:
-        # Absolute path configuration
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        STUDENTS_DIR = os.path.join(BASE_DIR, "students_pics")
-        os.makedirs(STUDENTS_DIR, exist_ok=True)
+# @app.post("/admin/register-student")
+# async def register_student_from_admin(
+#     roll_number: str = Form(...),
+#     name: str = Form(...),
+#     image: UploadFile = File(...)
+# ):
+#     try:
+#         # Absolute path configuration
+#         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#         STUDENTS_DIR = os.path.join(BASE_DIR, "students_pics")
+#         os.makedirs(STUDENTS_DIR, exist_ok=True)
         
-        file_path = os.path.join(STUDENTS_DIR, f"{name}_{roll_number}_front.jpg")
-        print(f"\n📍 FILE EXACT SAVE LOCATION: {file_path}\n")
+#         file_path = os.path.join(STUDENTS_DIR, f"{name}_{roll_number}_front.jpg")
+#         print(f"\n📍 FILE EXACT SAVE LOCATION: {file_path}\n")
 
-        # Save uploaded image
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
+#         # Save uploaded image
+#         with open(file_path, "wb") as buffer:
+#             shutil.copyfileobj(image.file, buffer)
 
-        # Clear PKL cache
-        for f in os.listdir(STUDENTS_DIR):
-            if f.endswith(".pkl"):
-                os.remove(os.path.join(STUDENTS_DIR, f))
+#         # Clear PKL cache
+#         for f in os.listdir(STUDENTS_DIR):
+#             if f.endswith(".pkl"):
+#                 os.remove(os.path.join(STUDENTS_DIR, f))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+#         conn = get_db_connection()
+#         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
-        if cursor.fetchone():
-            cursor.execute(
-                "UPDATE students SET name = ?, face_status = 'Registered' WHERE roll_number = ?",
-                (name, roll_number)
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, 'Registered')",
-                (name, roll_number)
-            )
+#         cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
+#         if cursor.fetchone():
+#             cursor.execute(
+#                 "UPDATE students SET name = ?, face_status = 'Registered' WHERE roll_number = ?",
+#                 (name, roll_number)
+#             )
+#         else:
+#             cursor.execute(
+#                 "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, 'Registered')",
+#                 (name, roll_number)
+#             )
 
-        conn.commit()
-        conn.close()
+#         conn.commit()
+#         conn.close()
 
-        return {"status": "Success", "message": f"Student {name} registered successfully!"}
-    except Exception as e:
-        print(f"‼️ Admin Register Error: {e}")
-        return {"status": "Error", "message": str(e)}
+#         return {"status": "Success", "message": f"Student {name} registered successfully!"}
+#     except Exception as e:
+#         print(f"‼️ Admin Register Error: {e}")
+#         return {"status": "Error", "message": str(e)}
 @app.get("/admin/weekly-stats")
 def get_weekly_stats():
     try:
