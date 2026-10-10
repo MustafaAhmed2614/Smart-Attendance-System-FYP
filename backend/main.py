@@ -1,36 +1,54 @@
-# main.py
-from fastapi import FastAPI, File, UploadFile, Form
 import os
+import csv
+import io
 import shutil
 import uuid
-import traceback 
-from fastapi import Response
-import csv                   
-import io      
-import cv2        
-import base64     
+import sqlite3
+import traceback
+import base64
+from datetime import datetime, timedelta
+
+import cv2
 import numpy as np
-from datetime import datetime              
+from fastapi import FastAPI, HTTPException, File, UploadFile, Form, Response
+from fastapi.middleware.cors import CORSMiddleware
+from passlib.context import CryptContext
+from pydantic import BaseModel
+
 # Clean Architecture imports
 from db.database import init_db, get_db_connection
 from services.ai_engine import recognize_faces
-from pydantic import BaseModel
-import sqlite3
-from passlib.context import CryptContext
 from routers import admin
-app = FastAPI()
-from fastapi.middleware.cors import CORSMiddleware
 
-
+# Initialize App & Middleware
+app = FastAPI(title="Smart Attendance AI Engine")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Development ke liye har port ko allow kar rahe hain
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"], # GET, POST, sab allow
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
 app.include_router(admin.router)
+
+# Initialize Database & Directories
+init_db()
+os.makedirs("./students_pics", exist_ok=True)
+ATTENDANCE_IMG_DIR = "attendance_photos"
+os.makedirs(ATTENDANCE_IMG_DIR, exist_ok=True)
+
+# Password Hashing Setup
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+# Pydantic Models
 class UserSignup(BaseModel):
     username: str
     password: str
@@ -44,31 +62,24 @@ class CourseCreate(BaseModel):
     course_name: str
     teacher_username: str
 
+class AdminStudentCreate(BaseModel):
+    name: str
+    roll_number: str
+    course_name: str
 
 
+# ==========================================
+# GENERAL & ROOT ENDPOINTS
+# ==========================================
 
-init_db()
-if not os.path.exists("./students_pics"):
-    os.makedirs("./students_pics")
-
-
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
 @app.get("/")
 def read_root():
-    return {"message": "FYP Smart Attendance API is Live! (Clean Architecture)"}
+    return {"message": "Smart Attendance AI Engine is Live!"}
 
-# 1. REGISTER STUDENT (Hybrid Flow Updated)
-import os 
+
+# ==========================================
+# STUDENT REGISTRATION & ATTENDANCE ENDPOINTS
+# ==========================================
 
 @app.post("/register")
 async def register_student(
@@ -79,7 +90,6 @@ async def register_student(
     right_image: UploadFile = File(...),
     up_image: UploadFile = File(...),
     smile_image: UploadFile = File(...)
-
 ):
     try:
         print(f"\n--- 📥 NEW FACE REGISTRATION: {name} ({roll_number}) ---")
@@ -90,7 +100,6 @@ async def register_student(
             f"{name}_{roll_number}_right.jpg": right_image,
             f"{name}_{roll_number}_up.jpg": up_image,
             f"{name}_{roll_number}_smile.jpg": smile_image
-            
         }
 
         for file_name, file_obj in files_to_save.items():
@@ -104,7 +113,6 @@ async def register_student(
             if f.endswith(".pkl"):
                 os.remove(os.path.join("./students_pics", f))
                 
-        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -122,9 +130,6 @@ async def register_student(
         traceback.print_exc() 
         return {"status": "Error", "message": str(e)}
 
-# 2. DETECT ATTENDANCE
-ATTENDANCE_IMG_DIR = "attendance_photos"
-os.makedirs(ATTENDANCE_IMG_DIR, exist_ok=True)
 
 @app.post("/detect-attendance/")
 async def detect_attendance(
@@ -140,7 +145,6 @@ async def detect_attendance(
     file_path = os.path.join(ATTENDANCE_IMG_DIR, filename) 
     
     try:
-        # Save image permanently
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         final_names = recognize_faces(file_path)
@@ -177,7 +181,6 @@ async def detect_attendance(
                             "INSERT INTO attendance (roll_number, course_name, date, time) VALUES (?, ?, ?, ?)", 
                             (roll_no, clean_course_name, today_date, time_now)
                         )
-                        
                         cursor.execute(
                             "INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", 
                             (name, "Present", clean_course_name)
@@ -189,7 +192,6 @@ async def detect_attendance(
             conn.commit()
             conn.close()
 
-            # --- Image processing (Drawing names) ---
             image = cv2.imread(file_path)
             y_position = 30
             for name in valid_students_marked:
@@ -213,8 +215,8 @@ async def detect_attendance(
             os.remove(file_path)
         print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "recognized_students": [], "message": str(e)}    
- 
-    # 3. VIEW LOGS
+
+
 @app.get("/view-attendance/")
 def view_attendance():
     conn = get_db_connection()
@@ -224,16 +226,13 @@ def view_attendance():
     conn.close()
     return {"logs": logs}
 
+
 @app.get("/daily-attendance/{course_name}")
 async def get_daily_attendance(course_name: str):
     try:
-        
         clean_course = course_name.strip()
-        print(f"\n📊 Fetching attendance list for: '{clean_course}'")
-        
         conn = get_db_connection()
         cursor = conn.cursor()
-        
         
         today = datetime.now().strftime("%Y-%m-%d")
         cursor.execute('''
@@ -244,18 +243,14 @@ async def get_daily_attendance(course_name: str):
         ''', (clean_course,))
         all_students = cursor.fetchall()
         
-        # 2. Fetch the roll numbers of students who are marked present today
         cursor.execute('''
             SELECT roll_number FROM attendance 
             WHERE TRIM(course_name) = ? AND date = ?
         ''', (clean_course, today))
         
         present_rolls = [row["roll_number"] for row in cursor.fetchall()]
-        print(f"✅ Found Present Roll Numbers Today: {present_rolls}")
-        
         conn.close()
         
-        # 3. Create a combined list with Present/Absent status
         attendance_list = []
         for student in all_students:
             status = "Present" if student["roll_number"] in present_rolls else "Absent"
@@ -272,59 +267,50 @@ async def get_daily_attendance(course_name: str):
         }
         
     except Exception as e:
-        print(f"‼️ Error fetching daily attendance: {e}")
         return {"status": "Error", "message": str(e)}
-    
-# 4. EXPORT ATTENDANCE TO EXCEL (CSV)
+
+
 @app.get("/export-attendance/")
 def export_attendance():
     try:
-        # 1. Database se data nikalna
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT student_name, status, timestamp FROM attendance_logs ORDER BY timestamp DESC")
         logs = cursor.fetchall()
         conn.close()
 
-        
         stream = io.StringIO()
         writer = csv.writer(stream)
-
-        
         writer.writerow(["Student Name", "Status", "Time"])
 
-       
         for row in logs:
             writer.writerow(row)
 
-        
         response = Response(content=stream.getvalue(), media_type="text/csv")
         response.headers["Content-Disposition"] = "attachment; filename=Attendance_Report.csv"
-        
         return response
 
     except Exception as e:
-        print(f"‼️ EXPORT ERROR: {str(e)}")
         return {"status": "Error", "message": str(e)}
-    
-# 5. CLEAR ATTENDANCE LOGS (Admin Only)
+
+
 @app.delete("/clear-attendance/")
 def clear_attendance():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM attendance_logs") # Sirf logs delete honge, students nahi
+        cursor.execute("DELETE FROM attendance_logs")
         conn.commit()
         conn.close()
-        return {"status": "Success", "message": "Purani saari attendance clear ho gayi!"}
+        return {"status": "Success", "message": "Attendance logs cleared successfully!"}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
-    
-
-# AUTHENTICATION & STUDENT APIs
 
 
-# 6. SIGNUP API 
+# ==========================================
+# AUTHENTICATION & COURSES
+# ==========================================
+
 @app.post("/signup/")
 async def signup(user: dict): 
     username = user.get("username")
@@ -341,11 +327,12 @@ async def signup(user: dict):
         )
         conn.commit()
         return {"status": "Success", "message": "Account created securely!"}
-    except Exception as e:
+    except Exception:
         return {"status": "Error", "message": "Username already exists!"}
     finally:
         conn.close()
-# 7. LOGIN API 
+
+
 @app.post("/login/")
 async def login(user: dict):
     username = user.get("username")
@@ -354,7 +341,6 @@ async def login(user: dict):
     
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     cursor.execute("SELECT password, role FROM users WHERE username = ?", (username,))
     db_user = cursor.fetchone()
     conn.close()
@@ -364,17 +350,16 @@ async def login(user: dict):
 
     db_hashed_password = db_user["password"]
     db_role = db_user["role"]
-    is_password_correct = verify_password(raw_password, db_hashed_password)
 
-    if not is_password_correct:
+    if not verify_password(raw_password, db_hashed_password):
         return {"status": "Error", "message": "Incorrect password!"}
         
     if role != db_role:
         return {"status": "Error", "message": "Incorrect role selected!"}
 
     return {"status": "Success", "message": "Login successful!"}
-# 8. STUDENT ATTENDANCE API 
-# 8. STUDENT ATTENDANCE API 
+
+
 @app.get("/my-attendance/{roll_number}")
 def get_my_attendance(roll_number: str):
     try:
@@ -388,20 +373,12 @@ def get_my_attendance(roll_number: str):
             return {"status": "Error", "message": "Student not found!"}
             
         student_name = student[0]
-        cursor.execute('''
-            SELECT TRIM(course_name) 
-            FROM enrollments 
-            WHERE roll_number = ?
-        ''', (roll_number,))
+        cursor.execute("SELECT TRIM(course_name) FROM enrollments WHERE roll_number = ?", (roll_number,))
         enrolled_courses = [row[0] for row in cursor.fetchall()]
 
         if not enrolled_courses:
             conn.close()
-            return {
-                "status": "Success", 
-                "student_name": student_name,
-                "attendance_data": []
-            }
+            return {"status": "Success", "student_name": student_name, "attendance_data": []}
 
         placeholders = ','.join(['?'] * len(enrolled_courses))
         query = f'''
@@ -413,21 +390,17 @@ def get_my_attendance(roll_number: str):
         
         params = [student_name] + enrolled_courses
         cursor.execute(query, params)
-        
         records = cursor.fetchall()
         conn.close()
 
         grouped_data = {}
-        
         for row in records:
             status = row[0]
             timestamp_str = row[1]
             raw_course_name = row[2] if row[2] else "Unknown Course"
             course_name = raw_course_name.strip() 
-            
             date_only = timestamp_str[:10]
             
-            # Grouping logic
             if course_name not in grouped_data:
                 grouped_data[course_name] = {}
                 
@@ -437,23 +410,17 @@ def get_my_attendance(roll_number: str):
                     "date": timestamp_str
                 }
                 
-        final_output = []
-        for course, dates in grouped_data.items():
-            final_output.append({
-                "course_name": course,
-                "records": list(dates.values())
-            })
+        final_output = [
+            {"course_name": course, "records": list(dates.values())}
+            for course, dates in grouped_data.items()
+        ]
 
-        return {
-            "status": "Success", 
-            "student_name": student_name,
-            "attendance_data": final_output
-        }
+        return {"status": "Success", "student_name": student_name, "attendance_data": final_output}
         
     except Exception as e:
-        print(f"‼️ API ERROR: {str(e)}")
         return {"status": "Error", "message": str(e)}
-# New course
+
+
 @app.post("/add-course/")
 def add_course(course: CourseCreate):
     try:
@@ -465,65 +432,57 @@ def add_course(course: CourseCreate):
         )
         conn.commit()
         conn.close()
-        
         return {"status": "Success", "message": f"Course '{course.course_name}' added successfully!"}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
 
 
-#Teacher courses
 @app.get("/my-courses/{teacher_username}")
 def get_my_courses(teacher_username: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        
-        cursor.execute(
-            "SELECT course_name FROM courses WHERE teacher_username = ?", 
-            (teacher_username,)
-        )
+        cursor.execute("SELECT course_name FROM courses WHERE teacher_username = ?", (teacher_username,))
         courses = cursor.fetchall()
         conn.close()
         
-       
-        course_list = []
-        for row in courses:
-            name = row["course_name"] if isinstance(row, sqlite3.Row) else row[0]
-            course_list.append(name)
-            
+        course_list = [row["course_name"] if isinstance(row, sqlite3.Row) else row[0] for row in courses]
         return {"status": "Success", "courses": course_list}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
-    
 
-# ADMIN API (Hybrid Flow)
-class AdminStudentCreate(BaseModel):
-    name: str
-    roll_number: str
-    course_name: str
+
+@app.get("/teacher-courses/{username}")
+def get_teacher_courses(username: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT course_name FROM courses WHERE TRIM(teacher_username) = ?", (username.strip(),))
+        courses = [row["course_name"] for row in cursor.fetchall()]
+        conn.close()
+        return {"status": "Success", "courses": courses}
+    except Exception as e:
+        return {"status": "Error", "message": str(e)}
+
+
+# ==========================================
+# ADMIN PANEL ENDPOINTS
+# ==========================================
 
 @app.post("/admin/add-student/")
 def admin_add_student(student: AdminStudentCreate):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Step 1: Check if the student already exists in the main students table
         cursor.execute("SELECT * FROM students WHERE roll_number = ?", (student.roll_number,))
         existing_student = cursor.fetchone()
         
         if not existing_student:
-            # Student is new, add them to the 'students' table
             cursor.execute(
                 "INSERT INTO students (name, roll_number, face_status) VALUES (?, ?, ?)",
                 (student.name, student.roll_number, "Pending")
             )
-            print(f"New student {student.name} registered in the system.")
-        else:
-            print(f"Student {student.name} already exists. Proceeding to course enrollment.")
 
-        # Step 2: Check if the student is already enrolled in this specific course
         cursor.execute(
             "SELECT * FROM enrollments WHERE roll_number = ? AND course_name = ?",
             (student.roll_number, student.course_name)
@@ -532,56 +491,39 @@ def admin_add_student(student: AdminStudentCreate):
 
         if already_enrolled:
             conn.close()
-            return {
-                "status": "Error", 
-                "message": f"Student {student.name} is already enrolled in {student.course_name}!"
-            }
+            return {"status": "Error", "message": f"Student {student.name} is already enrolled in {student.course_name}!"}
 
-        # Step 3: Enroll the student in the target course
         cursor.execute(
             "INSERT INTO enrollments (roll_number, course_name) VALUES (?, ?)",
             (student.roll_number, student.course_name)
         )
-        
         conn.commit()
         conn.close()
-        
-        return {
-            "status": "Success", 
-            "message": f"Student {student.name} successfully enrolled in {student.course_name}!"
-        }
+        return {"status": "Success", "message": f"Student {student.name} enrolled in {student.course_name}!"}
         
     except Exception as e:
-        print(f"API ERROR in admin_add_student: {str(e)}")
-        return {"status": "Error", "message": str(e)}    
+        return {"status": "Error", "message": str(e)}
 
-# List of Pending students
+
 @app.get("/pending-students/{course_name}")
 def get_pending_students(course_name: str):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
         cursor.execute('''
             SELECT s.name, s.roll_number 
             FROM students s
             JOIN enrollments e ON s.roll_number = e.roll_number
             WHERE e.course_name = ? AND s.face_status = 'Pending'
         ''', (course_name,))
-        
         pending_students = cursor.fetchall()
         conn.close()
-        student_list = []
-        for row in pending_students:
-            student_list.append({
-                "name": row["name"], 
-                "roll_number": row["roll_number"]
-            })
-            
+        
+        student_list = [{"name": row["name"], "roll_number": row["roll_number"]} for row in pending_students]
         return {"status": "Success", "pending_students": student_list}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
-    
+
 
 @app.post("/toggle-attendance/")
 async def toggle_manual_attendance(data: dict):
@@ -589,8 +531,6 @@ async def toggle_manual_attendance(data: dict):
         roll_number = data.get("roll_number")
         course_name = data.get("course_name").strip()
         new_status = data.get("status") 
-        
-        
         today_date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
         time_now = datetime.now().strftime("%H:%M:%S")
         
@@ -613,27 +553,14 @@ async def toggle_manual_attendance(data: dict):
             cursor.execute("DELETE FROM attendance WHERE roll_number = ? AND TRIM(course_name) = ? AND date = ?", (roll_number, course_name, today_date))
         
         cursor.execute("INSERT INTO attendance_logs (student_name, status, course_name) VALUES (?, ?, ?)", (student_name, f"Manual {new_status} (Date: {today_date})", course_name))
-        
         conn.commit()
         conn.close()
         return {"status": "Success", "message": f"{student_name} marked as {new_status}"}
         
     except Exception as e:
-        print(f"‼️ Error toggling manual attendance: {e}")
         return {"status": "Error", "message": str(e)}    
-@app.get("/teacher-courses/{username}")
-def get_teacher_courses(username: str):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT course_name FROM courses WHERE TRIM(teacher_username) = ?", (username.strip(),))
-        courses = [row["course_name"] for row in cursor.fetchall()]
-        
-        conn.close()
-        return {"status": "Success", "courses": courses}
-    except Exception as e:
-        return {"status": "Error", "message": str(e)}
-    
+
+
 @app.get("/admin/all-students-info/")
 def get_all_students_info():
     try:
@@ -646,16 +573,12 @@ def get_all_students_info():
             LEFT JOIN courses c ON TRIM(e.course_name) = TRIM(c.course_name)
             ORDER BY s.name
         ''')
-        
         rows = cursor.fetchall()
         conn.close()
 
-        
         grouped_data = {}
         for row in rows:
             roll = row["roll_number"]
-            
-            # Initialize student record if not already in dictionary
             if roll not in grouped_data:
                 grouped_data[roll] = {
                     "name": row["name"],
@@ -663,29 +586,17 @@ def get_all_students_info():
                     "face_status": row["face_status"],
                     "enrollments": []
                 }
-            
-            # Add course and teacher details if the student is enrolled in a course
             if row["course_name"]:
                 grouped_data[roll]["enrollments"].append({
                     "course_name": row["course_name"],
                     "teacher": row["teacher_username"] if row["teacher_username"] else "No Teacher Assigned"
                 })
         
-        # Convert dictionary to a list format for Flutter
-        students_list = list(grouped_data.values())
-        print(f"Successfully fetched {len(students_list)} students for admin view.")
-
-        return {"status": "Success", "data": students_list}
-        
+        return {"status": "Success", "data": list(grouped_data.values())}
     except Exception as e:
-        print(f"API ERROR in get_all_students_info: {str(e)}")
         return {"status": "Error", "message": str(e)}
-    
-
-# TEACHER HISTORY APIs (Date & Time Filter)
 
 
-#course session
 @app.get("/course-sessions/{course_name}")
 def get_course_sessions(course_name: str):
     try:
@@ -700,11 +611,10 @@ def get_course_sessions(course_name: str):
         
         sessions = [row["date"] for row in cursor.fetchall()]
         conn.close()
-        
         return {"status": "Success", "sessions": sessions}
     except Exception as e:
-        print(f"‼️ API ERROR in get_course_sessions: {str(e)}")
         return {"status": "Error", "message": str(e)}
+
 
 @app.get("/attendance-by-date/{course_name}/{target_date}")
 def get_attendance_by_date(course_name: str, target_date: str):
@@ -726,14 +636,15 @@ def get_attendance_by_date(course_name: str, target_date: str):
         
         present_rolls = [row["roll_number"] for row in cursor.fetchall()]
         conn.close()
-        attendance_list = []
-        for student in all_students:
-            status = "Present" if student["roll_number"] in present_rolls else "Absent"
-            attendance_list.append({
+
+        attendance_list = [
+            {
                 "name": student["name"],
                 "roll_number": student["roll_number"],
-                "status": status
-            })
+                "status": "Present" if student["roll_number"] in present_rolls else "Absent"
+            }
+            for student in all_students
+        ]
             
         return {
             "status": "Success", 
@@ -741,21 +652,9 @@ def get_attendance_by_date(course_name: str, target_date: str):
             "course_name": clean_course,
             "attendance_list": attendance_list
         }
-        
     except Exception as e:
-        print(f"‼️ API ERROR in get_attendance_by_date: {str(e)}")
         return {"status": "Error", "message": str(e)}
-    
-#ADMIN PANEL APIS
 
-@app.get("/")
-async def root():
-    return {"message": "Smart Attendance AI Engine is running!"}
-
-
-# ==========================================
-# ADMIN PANEL ENDPOINTS (Add in main.py)
-# ==========================================
 
 @app.get("/admin/stats")
 def get_dashboard_stats():
@@ -764,11 +663,9 @@ def get_dashboard_stats():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Total Registered Students
         cursor.execute("SELECT COUNT(*) FROM students")
         total_students = cursor.fetchone()[0]
 
-        # Today's Present Students
         cursor.execute("SELECT COUNT(DISTINCT roll_number) FROM attendance WHERE date = ? AND roll_number != 'SYSTEM'", (today,))
         present_today = cursor.fetchone()[0]
 
@@ -779,13 +676,7 @@ def get_dashboard_stats():
             "present_today": present_today
         }
     except Exception as e:
-        return {
-            "status": "Error",
-            "total_students": 0,
-            "present_today": 0,
-            "message": str(e)
-        }
-
+        return {"status": "Error", "total_students": 0, "present_today": 0, "message": str(e)}
 
 @app.post("/admin/register-student")
 async def register_student_from_admin(
@@ -794,22 +685,26 @@ async def register_student_from_admin(
     image: UploadFile = File(...)
 ):
     try:
-        os.makedirs("./students_pics", exist_ok=True)
-        file_path = f"./students_pics/{name}_{roll_number}_front.jpg"
+        # Absolute path configuration
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+        STUDENTS_DIR = os.path.join(BASE_DIR, "students_pics")
+        os.makedirs(STUDENTS_DIR, exist_ok=True)
         
+        file_path = os.path.join(STUDENTS_DIR, f"{name}_{roll_number}_front.jpg")
+        print(f"\n📍 FILE EXACT SAVE LOCATION: {file_path}\n")
+
         # Save uploaded image
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(image.file, buffer)
 
-        # Clear PKL cache so AI model learns new face
-        for f in os.listdir("./students_pics"):
+        # Clear PKL cache
+        for f in os.listdir(STUDENTS_DIR):
             if f.endswith(".pkl"):
-                os.remove(os.path.join("./students_pics", f))
+                os.remove(os.path.join(STUDENTS_DIR, f))
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Check if student exists
         cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
         if cursor.fetchone():
             cursor.execute(
@@ -825,51 +720,63 @@ async def register_student_from_admin(
         conn.commit()
         conn.close()
 
-        return {
-            "status": "Success",
-            "message": f"Student {name} registered successfully!"
-        }
+        return {"status": "Success", "message": f"Student {name} registered successfully!"}
     except Exception as e:
-        return {
-            "status": "Error",
-            "message": str(e)
-        }
-
-
-    from datetime import datetime, timedelta
-
+        print(f"‼️ Admin Register Error: {e}")
+        return {"status": "Error", "message": str(e)}
 @app.get("/admin/weekly-stats")
 def get_weekly_stats():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        # Calculate Monday of current week
+
         today = datetime.now()
-        start_of_week = today - timedelta(days=today.weekday()) # Monday
-        
+        start_of_week = today - timedelta(days=today.weekday())
+
         days_label = ["Mon", "Tue", "Wed", "Thu", "Fri"]
         weekly_data = []
-        
+
         for i in range(5):
             current_day_date = (start_of_week + timedelta(days=i)).strftime("%Y-%m-%d")
-            
-            # Count distinct students present on this specific date
+
             cursor.execute(
                 "SELECT COUNT(DISTINCT roll_number) FROM attendance WHERE date = ? AND roll_number != 'SYSTEM'",
                 (current_day_date,)
             )
-            present_count = cursor.fetchone()[0]
-            
+            row = cursor.fetchone()
+            present_count = row[0] if row else 0
+
             weekly_data.append({
                 "day": days_label[i],
                 "date": current_day_date,
                 "count": present_count
             })
-            
+
         conn.close()
         return {"status": "Success", "weekly_data": weekly_data}
-        
+
     except Exception as e:
-        print(f"Error fetching weekly stats: {e}")
         return {"status": "Error", "message": str(e), "weekly_data": []}
+
+
+@app.get("/admin/students")
+def get_all_students():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name, roll_number, face_status FROM students ORDER BY id DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        students = [
+            {
+                "id": row[0],
+                "name": row[1],
+                "roll_number": row[2],
+                "face_status": row[3] or "Registered"
+            }
+            for row in rows
+        ]
+        return {"status": "Success", "students": students}
+    except Exception as e:
+        return {"status": "Error", "message": str(e), "students": []}
