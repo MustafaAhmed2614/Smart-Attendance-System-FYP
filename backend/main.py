@@ -780,3 +780,4 @@ def get_all_students():
         return {"status": "Success", "students": students}
     except Exception as e:
         return {"status": "Error", "message": str(e), "students": []}
+

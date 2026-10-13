@@ -1,9 +1,10 @@
 from fastapi import APIRouter
 import sqlite3
 from datetime import date
-from fastapi import UploadFile, File, Form
+from fastapi import UploadFile, File, Form, HTTPException
 import os
 import shutil
+from fastapi.responses import FileResponse
 
 router = APIRouter(
     prefix="/admin",
@@ -12,7 +13,6 @@ router = APIRouter(
 
 # Database connect karne ka helper function
 def get_db_connection():
-    # Aapke database file ka path (agar kisi aur folder mein hai toh path theek kar lein)
     conn = sqlite3.connect('attendance.db') 
     conn.row_factory = sqlite3.Row # Is se data dictionary format mein aata hai
     return conn
@@ -23,13 +23,10 @@ async def get_admin_stats():
     cursor = conn.cursor()
 
     try:
-        # 1. Total Enrolled Students count karna
         cursor.execute("SELECT COUNT(*) as total_students FROM Students")
         total_students = cursor.fetchone()['total_students']
 
-        # 2. Aaj kitne bache present hain wo count karna
         today = date.today().strftime("%Y-%m-%d")
-        # Yahan date ka column name aapke DB ke hisaab se hoga
         cursor.execute("SELECT COUNT(DISTINCT roll_number) as present_today FROM Attendance WHERE date = ?", (today,))
         present_today = cursor.fetchone()['present_today']
 
@@ -44,15 +41,12 @@ async def get_admin_stats():
     finally:
         conn.close()
 
-
-
 @router.get("/reports")
 async def get_attendance_reports():
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        # Yahan Attendance.course_name ko query mein shamil kar diya gaya hai
         query = """
             SELECT Students.roll_number, Students.name, Attendance.date, Attendance.time, Attendance.course_name 
             FROM Attendance 
@@ -63,9 +57,7 @@ async def get_attendance_reports():
         cursor.execute(query)
         records = cursor.fetchall()
 
-        reports_list = []
-        for row in records:
-            reports_list.append(dict(row))
+        reports_list = [dict(row) for row in records]
 
         return {
             "status": "success", 
@@ -78,9 +70,23 @@ async def get_attendance_reports():
     finally:
         conn.close()
 
-
-
-
+# 🚀 Added /students endpoint with image filename
+@router.get("/students")
+async def get_students():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT name, roll_number, face_status, 
+            (name || '_' || roll_number || '_front.jpg') as image_filename
+            FROM students
+        """)
+        students = [dict(row) for row in cursor.fetchall()]
+        return {"status": "Success", "students": students}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
 
 # AI dataset ke liye folder create kar rahe hain
 DATASET_DIR = "registered_faces"
@@ -93,29 +99,23 @@ async def register_student(
     image: UploadFile = File(...)
 ):
     try:
-        # 1. Check if file is provided
         if not image:
             raise HTTPException(status_code=400, detail="No image uploaded.")
 
-        # 2. Path set karein jahan AI engine read karta hai (students_pics folder)
         STUDENTS_DIR = "students_pics"
         os.makedirs(STUDENTS_DIR, exist_ok=True)
 
-        # 3. File ka naam format karein (e.g., Name_Roll_front.jpg)
         file_name = f"{name}_{roll_number}_front.jpg"
         file_path = os.path.join(STUDENTS_DIR, file_name)
 
-        # 4. Image bytes save karein
         contents = await image.read()
         with open(file_path, "wb") as f:
             f.write(contents)
 
-        # 5. Purana PKL cache delete karein taake AI naya face learn kar sakay
         for f in os.listdir(STUDENTS_DIR):
             if f.endswith(".pkl"):
                 os.remove(os.path.join(STUDENTS_DIR, f))
 
-        # 6. Database mein face status update ya insert karein
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
@@ -141,23 +141,18 @@ async def register_student(
     except Exception as e:
         return {"status": "error", "message": f"Registration failed: {str(e)}"}
 
-
-
-
 @router.get("/student-detail/{roll_number}")
 async def get_student_detail(roll_number: str):
     conn = get_db_connection()
     cursor = conn.cursor()
 
     try:
-        # 1. Student ki basic info lena
-        cursor.execute("SELECT * FROM students WHERE roll_number = ?", (roll_number,))
+        cursor.execute("SELECT *, (name || '_' || roll_number || '_front.jpg') as image_filename FROM students WHERE roll_number = ?", (roll_number,))
         student = cursor.fetchone()
         
         if not student:
             return {"status": "error", "message": "Student not found"}
 
-        # 2. Us student ki attendance history lena
         cursor.execute("""
             SELECT date, time, course_name 
             FROM attendance 
@@ -178,4 +173,48 @@ async def get_student_detail(roll_number: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
     finally:
+        conn.close() 
+
+@router.get("/courses")
+async def get_courses():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT * FROM courses")
+        courses = [dict(row) for row in cursor.fetchall()]
+        return {"status": "success", "courses": courses}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
         conn.close()
+
+# 🚀 Updated to include image_filename for course students list
+@router.get("/course-students/{course_name}")
+async def get_course_students(course_name: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = """
+            SELECT s.roll_number, s.name, s.face_status, 
+            (s.name || '_' || s.roll_number || '_front.jpg') as image_filename
+            FROM enrollments e
+            JOIN students s ON e.roll_number = s.roll_number
+            WHERE e.course_name = ?
+        """
+        cursor.execute(query, (course_name,))
+        students = [dict(row) for row in cursor.fetchall()]
+        return {"status": "success", "students": students}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+@router.get("/student-images/{file_name}")
+async def get_student_image(file_name: str):
+    IMAGE_DIR = "students_pics"
+    file_path = os.path.join(IMAGE_DIR, file_name)
+
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    else:
+        return {"error": "Image not found"}
